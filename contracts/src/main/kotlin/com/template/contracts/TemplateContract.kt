@@ -1,11 +1,12 @@
 package com.template.contracts
 
 import com.template.states.TemplateState
-import net.corda.core.contracts.CommandData
 import net.corda.core.contracts.Contract
+import net.corda.core.contracts.TypeOnlyCommandData
 import net.corda.core.contracts.requireSingleCommand
-import net.corda.core.transactions.LedgerTransaction
 import net.corda.core.contracts.requireThat
+import net.corda.core.transactions.LedgerTransaction
+
 // ************
 // * Contract *
 // ************
@@ -30,7 +31,8 @@ class TemplateContract : Contract {
     }
 
     // Used to indicate the transaction's intent.
-    interface Commands : CommandData {
-        class Create : Commands
+    open class Commands : TypeOnlyCommandData() {
+        class Create : Commands()
+        class CreateDeal: Commands()
     }
 }
