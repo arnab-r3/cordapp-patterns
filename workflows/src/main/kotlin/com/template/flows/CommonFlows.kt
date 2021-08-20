@@ -10,9 +10,9 @@ import java.security.PublicKey
 
 @InitiatingFlow
 class CollectSignaturesAndFinalizeTransactionFlow(
-    private val ss: SignedTransaction,
-    override val progressTracker: ProgressTracker,
-    val myOptionalKeys: Iterable<PublicKey>?,
+    private val signedTransaction: SignedTransaction,
+    override val progressTracker: ProgressTracker?,
+    private val myOptionalKeys: Iterable<PublicKey>?,
     private val signers: Set<Party>,
     private val participants: Set<Party>
 ) : FlowLogic<SignedTransaction>() {
@@ -29,12 +29,14 @@ class CollectSignaturesAndFinalizeTransactionFlow(
         val otherNonSignerSessions = otherNonSigners.map{initiateFlow(it)}
         otherNonSignerSessions.map{it.send(false)}
 
-        val signedTransactionFromParties = subFlow(CollectSignaturesFlow(ss, signerSessions, progressTracker))
+        val signedTransactionFromParties =
+            subFlow(CollectSignaturesFlow(
+                signedTransaction,
+                signerSessions,
+                myOptionalKeys,
+                progressTracker?:CollectSignaturesFlow.tracker()))
 
         val sessionsToReceiveTx = otherNonSignerSessions + signerSessions
-
-        // TODO autocomplete does not work here
-        //servi << press ctrl+space here and nothing happens
 
         return subFlow(FinalityFlow(signedTransactionFromParties, sessionsToReceiveTx))
     }
@@ -43,23 +45,32 @@ class CollectSignaturesAndFinalizeTransactionFlow(
 
 @InitiatedBy(CollectSignaturesAndFinalizeTransactionFlow::class)
 class ResponderSignatureAndFinalityFlow(private val session: FlowSession) : FlowLogic<SignedTransaction>() {
+
+    @Suspendable
+    fun hygieneCheckSignedTransaction(stx: SignedTransaction) {
+        require (ourIdentity.owningKey in stx.requiredSigningKeys)
+        {"${ourIdentity.name} is not a signing member of transaction : ${stx.id}"}
+
+        require(session.counterparty.owningKey in stx.sigs.map{it.by})
+        {"Transaction should be signed by the sender"}
+
+
+        // TODO autocomplete does not work here
+        //servi                     //<< press ctrl+space here and nothing happens
+        // val state = Template     // TemplateState exists inside contract, but no autocomplete :(
+
+    }
+
     override fun call(): SignedTransaction {
         val needsToSignTransaction = session.receive<Boolean>().unwrap { it }
         // only sign if instructed to do so
         if (needsToSignTransaction) {
             subFlow(object : SignTransactionFlow(session) {
                 override fun checkTransaction(stx: SignedTransaction) {
+                    hygieneCheckSignedTransaction(stx)
+                    serviceHub.withEntityManager {
 
-                    require (ourIdentity.owningKey in stx.requiredSigningKeys)
-                    {"${ourIdentity.name} is not a signing member of transaction : ${stx.id}"}
-
-                    require(session.counterparty.owningKey in stx.sigs.map{it.by})
-                    {"Transaction should be signed by the sender"}
-
-
-                    // TODO autocomplete does not work here
-                    //servi                     //<< press ctrl+space here and nothing happens
-                    // val state = Template     // TemplateState exists inside contract, but no autocomplete :(
+                    }
                 }
             })
         }
@@ -67,3 +78,5 @@ class ResponderSignatureAndFinalityFlow(private val session: FlowSession) : Flow
         return subFlow(ReceiveFinalityFlow(otherSideSession = session))
     }
 }
+
+
