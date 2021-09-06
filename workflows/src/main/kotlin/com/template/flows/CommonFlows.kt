@@ -11,16 +11,36 @@ import java.security.PublicKey
 @InitiatingFlow
 class CollectSignaturesAndFinalizeTransactionFlow(
     private val signedTransaction: SignedTransaction,
-    override val progressTracker: ProgressTracker?,
+    override var progressTracker: ProgressTracker?,
     private val myOptionalKeys: Iterable<PublicKey>?,
     private val signers: Set<Party>,
     private val participants: Set<Party>
 ) : FlowLogic<SignedTransaction>() {
 
-    val notary = serviceHub.networkMapCache.notaryIdentities[0]
+    //    companion object {
+//        object COLLECTING_SIGNATURES : ProgressTracker.Step("Collecting Signatures")
+//        object FINALISING : ProgressTracker.Step("Finalising transaction.") {
+//            override fun childProgressTracker() = FinalityFlow.tracker()
+//        }
+//
+//        fun tracker() = ProgressTracker(SET_UP, BUILDING_THE_TX,
+//            VERIFYING_THE_TX, WE_SIGN, FINALISING)
+//    }
+//
+//    constructor() {
+//
+//        if (progressTracker != null && progressTracker!!.steps!=null) {
+//            progressTracker!!.steps += tracker().steps
+//        } else {
+//            progressTracker = tracker()
+//        }
+//    }
 
     @Suspendable
     override fun call(): SignedTransaction {
+
+
+
         val signerSessions = signers.map { initiateFlow(it) }
         signerSessions.map{ it.send(true)}
 
@@ -54,11 +74,6 @@ class ResponderSignatureAndFinalityFlow(private val session: FlowSession) : Flow
         require(session.counterparty.owningKey in stx.sigs.map{it.by})
         {"Transaction should be signed by the sender"}
 
-
-        // TODO autocomplete does not work here
-        //servi                     //<< press ctrl+space here and nothing happens
-        // val state = Template     // TemplateState exists inside contract, but no autocomplete :(
-
     }
 
     override fun call(): SignedTransaction {
@@ -68,9 +83,8 @@ class ResponderSignatureAndFinalityFlow(private val session: FlowSession) : Flow
             subFlow(object : SignTransactionFlow(session) {
                 override fun checkTransaction(stx: SignedTransaction) {
                     hygieneCheckSignedTransaction(stx)
-                    serviceHub.withEntityManager {
+                    // TODO additional checks
 
-                    }
                 }
             })
         }
