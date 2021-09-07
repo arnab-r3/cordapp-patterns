@@ -34,7 +34,7 @@ object ExampleFlows {
         private val commandString: String,
         private val counterParty: Party,
         private val txObject: ExampleTransactionObject
-    ) : FlowLogic<SignedTransaction>() {
+    ) : FlowLogic<String>() {
 
 
         companion object {
@@ -63,7 +63,7 @@ object ExampleFlows {
 
         @Suspendable
         private fun createTransaction()
-                : TransactionBuilder {
+                : Pair<TransactionBuilder,String> {
 
             return when (commandString) {
                 "CreateEncapsulating" -> {
@@ -84,9 +84,12 @@ object ExampleFlows {
                                 listOf(ourIdentity, counterParty))
 
 
-                        TransactionBuilder(getDefaultNotary(serviceHub))
+                        Pair(TransactionBuilder(getDefaultNotary(serviceHub))
                             .addOutputState(encapsulatingState)
-                            .addCommand(ExampleContract.Commands.CreateEncapsulating(), listOf(ourIdentity.owningKey, counterParty.owningKey))
+                            .addCommand(ExampleContract.Commands.CreateEncapsulating(), listOf(ourIdentity.owningKey, counterParty.owningKey)),
+                            """
+                                Encapsulating created, ID: ${encapsulatingState.identifier.id}
+                            """.trimIndent())
 
                     } else fail("Create Encapsulating state must accompany the inner identifier and the outer enclosing value")
 
@@ -113,10 +116,14 @@ object ExampleFlows {
                                 listOf(ourIdentity, counterParty))
 
 
-                        TransactionBuilder(getDefaultNotary(serviceHub))
+                        Pair(TransactionBuilder(getDefaultNotary(serviceHub))
                             .addOutputState(encapsulatingState)
                             .addInputState(queriedEncapsulatingState)
-                            .addCommand(ExampleContract.Commands.UpdateEncapsulating(), listOf(ourIdentity.owningKey, counterParty.owningKey))
+                            .addCommand(ExampleContract.Commands.UpdateEncapsulating(), listOf(ourIdentity.owningKey, counterParty.owningKey)),
+                            """
+                                Encapsulating updated with inner identifier: ${txObject.innerIdentifier}
+                                and outer identifier: ${txObject.outerIdentifier}
+                            """.trimIndent())
                     } else fail("Update Encapsulating state must accompany the inner and outer identifiers and the outer enclosing value")
 
                 }
@@ -126,9 +133,12 @@ object ExampleFlows {
                         val encapsulatedState =
                             EncapsulatedState(txObject.enclosedValue, listOf(ourIdentity, counterParty))
 
-                        TransactionBuilder(getDefaultNotary(serviceHub))
+                        Pair(TransactionBuilder(getDefaultNotary(serviceHub))
                             .addOutputState(encapsulatedState)
-                            .addCommand(ExampleContract.Commands.CreateEnclosed(), listOf(ourIdentity.owningKey, counterParty.owningKey))
+                            .addCommand(ExampleContract.Commands.CreateEnclosed(), listOf(ourIdentity.owningKey, counterParty.owningKey)),
+                            """
+                                Encapsulated created with identifier ${encapsulatedState.linearId.id}
+                            """.trimIndent())
 
                     } else fail("Create of Encapsulated state should include the enclosing value")
 
@@ -149,10 +159,13 @@ object ExampleFlows {
                         )
 
 
-                        TransactionBuilder(getDefaultNotary(serviceHub))
+                        Pair(TransactionBuilder(getDefaultNotary(serviceHub))
                             .addInputState(queriedEncapsulatedState)
                             .addOutputState(encapsulatedState)
-                            .addCommand(ExampleContract.Commands.UpdateEnclosed(), listOf(ourIdentity.owningKey, counterParty.owningKey))
+                            .addCommand(ExampleContract.Commands.UpdateEnclosed(), listOf(ourIdentity.owningKey, counterParty.owningKey)),
+                            """
+                                Encapsulated Updated with id: ${txObject.innerIdentifier}
+                            """.trimIndent())
 
                     } else fail("Update of Encapsulated state should include the enclosing value and the state identifier to be updated")
                 }
@@ -167,32 +180,35 @@ object ExampleFlows {
                 contractStateTypes = setOf(type),
                 relevancyStatus = Vault.RelevancyStatus.ALL)
             require(serviceHub.vaultService.queryBy<T>(linearStateQueryCriteria).states.isNotEmpty()
-            ) { "Provided $identifier do not correspond to any matching states" }
+            ) { "Provided $identifier do not correspond to any matching states of type $type" }
         }
 
         @Suspendable
-        override fun call(): SignedTransaction {
+        override fun call(): String {
 
             progressTracker.currentStep = BUILDING_THE_TX
 
-            val txBuilder = createTransaction()
+            val (txBuilder, txOutputString) = createTransaction()
 
             progressTracker.currentStep = VERIFYING_THE_TX
 
             txBuilder.verify(serviceHub)
 
             progressTracker.currentStep = WE_SIGN
-            val selfSignedTransaction = serviceHub.signInitialTransaction(txBuilder)
 
+            val selfSignedTransaction = serviceHub.signInitialTransaction(txBuilder)
 
             progressTracker.currentStep = COLLECTING_SIGS_AND_FINALITY
 
-            return subFlow(
+            val subFlow: SignedTransaction = subFlow(
                 CollectSignaturesAndFinalizeTransactionFlow(
                     selfSignedTransaction,
                     null,
                     setOf(counterParty),
                     setOf(counterParty, ourIdentity)))
+
+            return "$txOutputString, Tx ID: ${subFlow.id}"
+
         }
 
     }

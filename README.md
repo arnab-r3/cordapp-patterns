@@ -2,6 +2,24 @@
 
 ## 1. Independent Evolution of Inner and Outer States
 
+Demonstrates the independent evolution of an Encapsulated State within an Encapsulating state. The inner one, i.e. the encapsulated one is linked to the encapsulating with a `LinearPointer`.
+
+```
+|-------------------------------|
+|      Encapsulating State      |---> Independently persisted on DB
+|       |                       |
+|       | (linear pointer)      |
+|       v                       |
+|   |----------------------|    |
+|   |   Encapsulated State |----|---> Independently persisted on DB
+|   |----------------------|    |
+|-------------------------------|
+```
+
+
+
+From Party A execute the following:
+
 ### Create Inner
 
 ```shell
