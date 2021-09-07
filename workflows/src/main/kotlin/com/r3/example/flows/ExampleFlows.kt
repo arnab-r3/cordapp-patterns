@@ -12,7 +12,6 @@ import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.node.ServiceHub
-import net.corda.core.node.services.Vault
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.serialization.CordaSerializable
@@ -88,7 +87,7 @@ object ExampleFlows {
                             .addOutputState(encapsulatingState)
                             .addCommand(ExampleContract.Commands.CreateEncapsulating(), listOf(ourIdentity.owningKey, counterParty.owningKey)),
                             """
-                                Encapsulating created, ID: ${encapsulatingState.identifier.id}
+                                Encapsulating created, ID: ${encapsulatingState.linearId.id}
                             """.trimIndent())
 
                     } else fail("Create Encapsulating state must accompany the inner identifier and the outer enclosing value")
@@ -103,7 +102,7 @@ object ExampleFlows {
                         checkStateWithIdExists(EncapsulatingState::class.java, txObject.outerIdentifier)
 
                         val queriedEncapsulatingState =
-                            serviceHub.vaultService.queryBy<EncapsulatingState>().states.single { it.state.data.identifier.id == txObject.outerIdentifier }
+                            serviceHub.vaultService.queryBy<EncapsulatingState>().states.single { it.state.data.linearId.id == txObject.outerIdentifier }
 
                         val encapsulatingState =
                             EncapsulatingState(
@@ -175,10 +174,9 @@ object ExampleFlows {
 
         // check if the provided id exists
         private inline fun <reified T: ContractState> checkStateWithIdExists(type: Class<T>, identifier: UUID) {
-            val linearStateQueryCriteria = QueryCriteria.LinearStateQueryCriteria(uuid = listOf(identifier),
-                status = Vault.StateStatus.UNCONSUMED,
-                contractStateTypes = setOf(type),
-                relevancyStatus = Vault.RelevancyStatus.ALL)
+            val linearStateQueryCriteria = QueryCriteria.LinearStateQueryCriteria(
+                uuid = listOf(identifier),
+                contractStateTypes = setOf(type))
             require(serviceHub.vaultService.queryBy<T>(linearStateQueryCriteria).states.isNotEmpty()
             ) { "Provided $identifier do not correspond to any matching states of type $type" }
         }

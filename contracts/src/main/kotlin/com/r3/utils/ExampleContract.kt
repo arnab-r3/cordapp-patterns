@@ -54,7 +54,7 @@ class ExampleContract : Contract {
 
                     //ensure that the created encapsulating state is the updated one and we are not creating any new ones
                     "Update should produce the same encapsulating state" using
-                            (inputEncapsulatingStates.single().identifier == outputEncapsulatingStates.single().identifier)
+                            (inputEncapsulatingStates.single().linearId == outputEncapsulatingStates.single().linearId)
 
                     "Update should use the same encapsulated state" using
                             (inputEncapsulatingStates.single().encapsulatedStateIdentifier == outputEncapsulatingStates.single().encapsulatedStateIdentifier)

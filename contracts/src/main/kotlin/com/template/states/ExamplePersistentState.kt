@@ -48,15 +48,15 @@ data class EncapsulatedState(
 @BelongsToContract(ExampleContract::class)
 data class EncapsulatingState(
     val value: String,
-    val identifier: UniqueIdentifier = UniqueIdentifier(),
+    override val linearId: UniqueIdentifier = UniqueIdentifier(),
     val encapsulatedStateIdentifier : LinearPointer<EncapsulatedState>,
     override val participants: List<AbstractParty>
-) : QueryableState {
+) : QueryableState, LinearState {
 
     override fun generateMappedObject(schema: MappedSchema): PersistentState {
         if (schema is ExampleSchemaV1) {
             return ExampleSchemaV1.EncapsulatingSchema(
-                identifier = identifier.id,
+                identifier = linearId.id,
                 encapsulatingValue = value,
                 encapsulatedSchemaId = encapsulatedStateIdentifier.pointer.id)
         }else{

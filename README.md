@@ -4,6 +4,8 @@
 
 Demonstrates the independent evolution of an Encapsulated State within an Encapsulating state. The inner one, i.e. the encapsulated one is linked to the encapsulating with a `LinearPointer`.
 
+Both the `Encapsulating` and `Encapsulated` states are modelled as `LinearState` to allow them to evolve independently.
+
 ```
 |-------------------------------|
 |      Encapsulating State      |---> Independently persisted on DB
