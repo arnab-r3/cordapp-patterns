@@ -1,142 +1,47 @@
-<p align="center">
-  <img src="https://www.corda.net/wp-content/uploads/2016/11/fg005_corda_b.png" alt="Corda" width="500">
-</p>
+# CorDapp Samples
 
-# CorDapp Template - Kotlin
+## 1. Independent Evolution of Inner and Outer States
 
-Welcome to the Kotlin CorDapp template. The CorDapp template is a stubbed-out CorDapp that you can use to bootstrap 
-your own CorDapps.
+### Create Inner
 
-**This is the Kotlin version of the CorDapp template. The Java equivalent is 
-[here](https://github.com/corda/cordapp-template-java/).**
+```shell
+flow start ExampleFlows$InitiatorFlow commandString: CreateEnclosed, txObject: { "enclosedValue":"test-inner"}, counterParty: PartyB
+```
 
-# Pre-Requisites
 
-See https://docs.corda.net/getting-set-up.html.
+### Update Inner
 
-# Usage
+```shell
+flow start ExampleFlows$InitiatorFlow commandString: UpdateEnclosed, txObject: { "enclosedValue":"new-test-inner", "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1"}, counterParty: PartyB
+```
 
-## Running tests inside IntelliJ
 
-We recommend editing your IntelliJ preferences so that you use the Gradle runner - this means that the quasar utils
-plugin will make sure that some flags (like ``-javaagent`` - see below) are
-set for you.
+### Create outer with reference to the inner
 
-To switch to using the Gradle runner:
+```shell
+flow start ExampleFlows$InitiatorFlow commandString: CreateEncapsulating, txObject: { "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1", "enclosingValue":"outer-value"}, counterParty: PartyB
+```
 
-* Navigate to ``Build, Execution, Deployment -> Build Tools -> Gradle -> Runner`` (or search for `runner`)
-  * Windows: this is in "Settings"
-  * MacOS: this is in "Preferences"
-* Set "Delegate IDE build/run actions to gradle" to true
-* Set "Run test using:" to "Gradle Test Runner"
+### Create outer with reference to the same inner
 
-If you would prefer to use the built in IntelliJ JUnit test runner, you can run ``gradlew installQuasar`` which will
-copy your quasar JAR file to the lib directory. You will then need to specify ``-javaagent:lib/quasar.jar``
-and set the run directory to the project root directory for each test.
+```shell
+flow start ExampleFlows$InitiatorFlow commandString: CreateEncapsulating, txObject: { "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1", "enclosingValue":"some-other-outer-value"}, counterParty: PartyB
+```
 
-## Running the nodes
+### Update Inner Again
 
-See https://docs.corda.net/tutorial-cordapp.html#running-the-example-cordapp.
+```shell
+flow start ExampleFlows$InitiatorFlow commandString: UpdateEnclosed, txObject: { "enclosedValue":"brand-new-inner", "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1"}, counterParty: PartyB
+```
 
-## Interacting with the nodes
+### Update the last outer keeping the inner same
 
-### Shell
+```shell
+flow start ExampleFlows$InitiatorFlow commandString: UpdateEncapsulating, txObject: { "enclosingValue":"brand-new-outer", "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1", "outerIdentifier":"3c1f082c-35b8-4fd6-81f3-0317b0a17268"}, counterParty: PartyB
+```
 
-When started via the command line, each node will display an interactive shell:
+### Query the DB to check the reference to the inner
+```sql
+SELECT * FROM ENCAPSULATED inr JOIN ENCAPSULATING outr ON (inr.ID = outr.ENCAPSULATED_ID) WHERE inr.TRANSACTION_ID IN (SELECT TRANSACTION_ID FROM VAULT_STATES vs WHERE vs.STATE_STATUS=0) AND outr.TRANSACTION_ID IN (SELECT TRANSACTION_ID FROM VAULT_STATES vs2 WHERE vs2.STATE_STATUS=0)
 
-    Welcome to the Corda interactive shell.
-    Useful commands include 'help' to see what is available, and 'bye' to shut down the node.
-    
-    Tue Nov 06 11:58:13 GMT 2018>>>
-
-You can use this shell to interact with your node. For example, enter `run networkMapSnapshot` to see a list of 
-the other nodes on the network:
-
-    Tue Nov 06 11:58:13 GMT 2018>>> run networkMapSnapshot
-    [
-      {
-      "addresses" : [ "localhost:10002" ],
-      "legalIdentitiesAndCerts" : [ "O=Notary, L=London, C=GB" ],
-      "platformVersion" : 3,
-      "serial" : 1541505484825
-    },
-      {
-      "addresses" : [ "localhost:10005" ],
-      "legalIdentitiesAndCerts" : [ "O=PartyA, L=London, C=GB" ],
-      "platformVersion" : 3,
-      "serial" : 1541505382560
-    },
-      {
-      "addresses" : [ "localhost:10008" ],
-      "legalIdentitiesAndCerts" : [ "O=PartyB, L=New York, C=US" ],
-      "platformVersion" : 3,
-      "serial" : 1541505384742
-    }
-    ]
-    
-    Tue Nov 06 12:30:11 GMT 2018>>> 
-
-You can find out more about the node shell [here](https://docs.corda.net/shell.html).
-
-### Client
-
-`clients/src/main/kotlin/com/template/Client.kt` defines a simple command-line client that connects to a node via RPC 
-and prints a list of the other nodes on the network.
-
-#### Running the client
-
-##### Via the command line
-
-Run the `runTemplateClient` Gradle task. By default, it connects to the node with RPC address `localhost:10006` with 
-the username `user1` and the password `test`.
-
-##### Via IntelliJ
-
-Run the `Run Template Client` run configuration. By default, it connects to the node with RPC address `localhost:10006` 
-with the username `user1` and the password `test`.
-
-### Webserver
-
-`clients/src/main/kotlin/com/template/webserver/` defines a simple Spring webserver that connects to a node via RPC and 
-allows you to interact with the node over HTTP.
-
-The API endpoints are defined here:
-
-     clients/src/main/kotlin/com/template/webserver/Controller.kt
-
-And a static webpage is defined here:
-
-     clients/src/main/resources/static/
-
-#### Running the webserver
-
-##### Via the command line
-
-Run the `runTemplateServer` Gradle task. By default, it connects to the node with RPC address `localhost:10006` with 
-the username `user1` and the password `test`, and serves the webserver on port `localhost:10050`.
-
-##### Via IntelliJ
-
-Run the `Run Template Server` run configuration. By default, it connects to the node with RPC address `localhost:10006` 
-with the username `user1` and the password `test`, and serves the webserver on port `localhost:10050`.
-
-#### Interacting with the webserver
-
-The static webpage is served on:
-
-    http://localhost:10050
-
-While the sole template endpoint is served on:
-
-    http://localhost:10050/templateendpoint
-    
-# Extending the template
-
-You should extend this template as follows:
-
-* Add your own state and contract definitions under `contracts/src/main/kotlin/`
-* Add your own flow definitions under `workflows/src/main/kotlin/`
-* Extend or replace the client and webserver under `clients/src/main/kotlin/`
-
-For a guided example of how to extend this template, see the Hello, World! tutorial 
-[here](https://docs.corda.net/hello-world-introduction.html).
+```

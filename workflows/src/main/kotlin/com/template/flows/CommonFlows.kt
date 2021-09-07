@@ -11,54 +11,53 @@ import java.security.PublicKey
 @InitiatingFlow
 class CollectSignaturesAndFinalizeTransactionFlow(
     private val signedTransaction: SignedTransaction,
-    override var progressTracker: ProgressTracker?,
     private val myOptionalKeys: Iterable<PublicKey>?,
     private val signers: Set<Party>,
     private val participants: Set<Party>
 ) : FlowLogic<SignedTransaction>() {
 
-    //    companion object {
-//        object COLLECTING_SIGNATURES : ProgressTracker.Step("Collecting Signatures")
-//        object FINALISING : ProgressTracker.Step("Finalising transaction.") {
-//            override fun childProgressTracker() = FinalityFlow.tracker()
-//        }
-//
-//        fun tracker() = ProgressTracker(SET_UP, BUILDING_THE_TX,
-//            VERIFYING_THE_TX, WE_SIGN, FINALISING)
-//    }
-//
-//    constructor() {
-//
-//        if (progressTracker != null && progressTracker!!.steps!=null) {
-//            progressTracker!!.steps += tracker().steps
-//        } else {
-//            progressTracker = tracker()
-//        }
-//    }
+    companion object {
+        object COLLECTING_SIGNATURES : ProgressTracker.Step("Collecting Signatures") {
+            override fun childProgressTracker() = CollectSignaturesFlow.tracker()
+        }
+
+        object FINALISING : ProgressTracker.Step("Finalising transaction.") {
+            override fun childProgressTracker() = FinalityFlow.tracker()
+        }
+
+        fun tracker() = ProgressTracker(COLLECTING_SIGNATURES, FINALISING)
+    }
+
 
     @Suspendable
     override fun call(): SignedTransaction {
 
 
+        //TODO validate if the transaction command contains the list of signers
 
-        val signerSessions = signers.map { initiateFlow(it) }
-        signerSessions.map{ it.send(true)}
+
+        // note the mechanism needs to be revisited, if there are a lot of signers to be included,
+        // opening a large number of sessions can be detrimental to the performance and the memory usage of the app
+
+        val signerSessions = (signers - ourIdentity).map { initiateFlow(it) }
+
+        signerSessions.map { it.send(true) }
 
         // tell others they are just receiving
-        val otherNonSigners = participants - signers
-        val otherNonSignerSessions = otherNonSigners.map{initiateFlow(it)}
-        otherNonSignerSessions.map{it.send(false)}
+        val otherNonSigners = participants - signers - ourIdentity
+        val otherNonSignerSessions = otherNonSigners.map { initiateFlow(it) }
+        otherNonSignerSessions.map { it.send(false) }
 
         val signedTransactionFromParties =
             subFlow(CollectSignaturesFlow(
                 signedTransaction,
                 signerSessions,
                 myOptionalKeys,
-                progressTracker?:CollectSignaturesFlow.tracker()))
+                COLLECTING_SIGNATURES.childProgressTracker()))
 
         val sessionsToReceiveTx = otherNonSignerSessions + signerSessions
 
-        return subFlow(FinalityFlow(signedTransactionFromParties, sessionsToReceiveTx))
+        return subFlow(FinalityFlow(signedTransactionFromParties, sessionsToReceiveTx, FINALISING.childProgressTracker()))
     }
 
 }
@@ -68,14 +67,15 @@ class ResponderSignatureAndFinalityFlow(private val session: FlowSession) : Flow
 
     @Suspendable
     fun hygieneCheckSignedTransaction(stx: SignedTransaction) {
-        require (ourIdentity.owningKey in stx.requiredSigningKeys)
-        {"${ourIdentity.name} is not a signing member of transaction : ${stx.id}"}
+        require(ourIdentity.owningKey in stx.requiredSigningKeys)
+        { "${ourIdentity.name} is not a signing member of transaction : ${stx.id}" }
 
-        require(session.counterparty.owningKey in stx.sigs.map{it.by})
-        {"Transaction should be signed by the sender"}
+        require(session.counterparty.owningKey in stx.sigs.map { it.by })
+        { "Transaction should be signed by the sender" }
 
     }
 
+    @Suspendable
     override fun call(): SignedTransaction {
         val needsToSignTransaction = session.receive<Boolean>().unwrap { it }
         // only sign if instructed to do so

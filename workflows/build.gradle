@@ -54,6 +54,19 @@ dependencies {
     cordaCompile "$confidential_id_release_group:ci-workflows:$confidential_id_release_version"
     cordaCompile "$accounts_release_group:accounts-workflows:$accounts_release_version"
     cordaCompile "$accounts_release_group:accounts-contracts:$accounts_release_version"
+
+    compile "net.corda:corda-jackson:$corda_release_version"
+    String jackson = '2.9.7'
+    implementation "com.fasterxml.jackson.core:jackson-core:${jackson}"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:${jackson}"
+    implementation "com.fasterxml.jackson.core:jackson-databind:${jackson}"
+    implementation "com.fasterxml.jackson.module:jackson-module-kotlin:${jackson}"
+    compile("com.fasterxml.jackson.module:jackson-module-kotlin:${jackson}")
+
+}
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 task integrationTest(type: Test, dependsOn: []) {

@@ -1,18 +1,21 @@
 package com.r3.example.flows
 
+import co.paralleluniverse.fibers.Suspendable
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.r3.utils.ExampleContract
 import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
 import com.template.states.EncapsulatedState
 import com.template.states.EncapsulatingState
+import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.LinearPointer
 import net.corda.core.contracts.UniqueIdentifier
-import net.corda.core.flows.FinalityFlow
-import net.corda.core.flows.FlowLogic
-import net.corda.core.flows.InitiatedBy
-import net.corda.core.flows.InitiatingFlow
+import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.node.ServiceHub
+import net.corda.core.node.services.Vault
 import net.corda.core.node.services.queryBy
+import net.corda.core.node.services.vault.QueryCriteria
+import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
@@ -25,6 +28,7 @@ fun getDefaultNotary(serviceHub: ServiceHub) = serviceHub.networkMapCache.notary
 object ExampleFlows {
 
 
+    @StartableByRPC
     @InitiatingFlow
     class InitiatorFlow(
         private val commandString: String,
@@ -37,35 +41,38 @@ object ExampleFlows {
             object SET_UP : ProgressTracker.Step("Initialising flows.")
             object BUILDING_THE_TX : ProgressTracker.Step("Building transaction.")
             object VERIFYING_THE_TX : ProgressTracker.Step("Verifying transaction.")
-            object WE_SIGN : ProgressTracker.Step("signing transaction.")
-            object FINALISING : ProgressTracker.Step("Finalising transaction.") {
-                override fun childProgressTracker() = FinalityFlow.tracker()
+            object WE_SIGN : ProgressTracker.Step("We are signing transaction.")
+            object COLLECTING_SIGS_AND_FINALITY: ProgressTracker.Step("Collecting Signatures & Executing Finality") {
+                override fun childProgressTracker() = CollectSignaturesAndFinalizeTransactionFlow.tracker()
             }
 
             fun tracker() = ProgressTracker(SET_UP, BUILDING_THE_TX,
-                VERIFYING_THE_TX, WE_SIGN, FINALISING)
+                VERIFYING_THE_TX, WE_SIGN, COLLECTING_SIGS_AND_FINALITY)
         }
 
         override val progressTracker = tracker()
 
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        @CordaSerializable
         data class ExampleTransactionObject(
-            val enclosingValue: String?,
-            val enclosedValue: String?,
-            val outerIdentifier: UUID?,
-            val innerIdentifier: UUID?
+            val enclosingValue: String? = null,
+            val enclosedValue: String? = null,
+            val outerIdentifier: UUID? = null,
+            val innerIdentifier: UUID? = null
         )
 
+        @Suspendable
         private fun createTransaction()
                 : TransactionBuilder {
 
-            val command =
-                Class.forName("com.r3.utils.ExampleContract.Commands.$commandString")
-                    .newInstance() as ExampleContract.Commands
-
-            return when (command) {
-                is ExampleContract.Commands.CreateEncapsulating -> {
+            return when (commandString) {
+                "CreateEncapsulating" -> {
 
                     if (txObject.innerIdentifier != null && txObject.enclosingValue != null) {
+
+                        // check if the inner value id exists
+                        checkStateWithIdExists(EncapsulatedState::class.java, txObject.innerIdentifier)
+
                         val encapsulatingState =
                             EncapsulatingState(
                                 txObject.enclosingValue,
@@ -76,19 +83,21 @@ object ExampleFlows {
                                     false),
                                 listOf(ourIdentity, counterParty))
 
-                        progressTracker.currentStep =
-                            ProgressTracker.Step("Creating Transaction : Create \"Encapsulating\" with outer identifier: ${encapsulatingState.identifier.id}")
 
                         TransactionBuilder(getDefaultNotary(serviceHub))
                             .addOutputState(encapsulatingState)
-                            .addCommand(ExampleContract.Commands.CreateEncapsulating())
+                            .addCommand(ExampleContract.Commands.CreateEncapsulating(), listOf(ourIdentity.owningKey, counterParty.owningKey))
 
                     } else fail("Create Encapsulating state must accompany the inner identifier and the outer enclosing value")
 
                 }
-                is ExampleContract.Commands.UpdateEncapsulating -> {
+                "UpdateEncapsulating" -> {
 
                     if (txObject.outerIdentifier != null && txObject.innerIdentifier != null && txObject.enclosingValue != null) {
+
+                        // check if the inner and outer value id exists
+                        checkStateWithIdExists(EncapsulatedState::class.java, txObject.innerIdentifier)
+                        checkStateWithIdExists(EncapsulatingState::class.java, txObject.outerIdentifier)
 
                         val queriedEncapsulatingState =
                             serviceHub.vaultService.queryBy<EncapsulatingState>().states.single { it.state.data.identifier.id == txObject.outerIdentifier }
@@ -103,49 +112,47 @@ object ExampleFlows {
                                     false),
                                 listOf(ourIdentity, counterParty))
 
-                        progressTracker.currentStep =
-                            ProgressTracker.Step("Creating transaction : Update \"Encapsulating\" with outer identifier: ${encapsulatingState.identifier.id}")
 
                         TransactionBuilder(getDefaultNotary(serviceHub))
                             .addOutputState(encapsulatingState)
                             .addInputState(queriedEncapsulatingState)
-                            .addCommand(ExampleContract.Commands.UpdateEncapsulating())
+                            .addCommand(ExampleContract.Commands.UpdateEncapsulating(), listOf(ourIdentity.owningKey, counterParty.owningKey))
                     } else fail("Update Encapsulating state must accompany the inner and outer identifiers and the outer enclosing value")
 
                 }
-                is ExampleContract.Commands.CreateEnclosed -> {
+                "CreateEnclosed" -> {
 
                     if (txObject.enclosedValue != null) {
                         val encapsulatedState =
                             EncapsulatedState(txObject.enclosedValue, listOf(ourIdentity, counterParty))
 
-                        progressTracker.currentStep =
-                            ProgressTracker.Step("Creating transaction : Create \"Encapsulated\" with identifier: ${encapsulatedState.linearId.id}")
-
                         TransactionBuilder(getDefaultNotary(serviceHub))
                             .addOutputState(encapsulatedState)
+                            .addCommand(ExampleContract.Commands.CreateEnclosed(), listOf(ourIdentity.owningKey, counterParty.owningKey))
 
                     } else fail("Create of Encapsulated state should include the enclosing value")
 
                 }
-                is ExampleContract.Commands.UpdateEnclosed -> {
-                    if (txObject.enclosingValue != null && txObject.innerIdentifier != null) {
+                "UpdateEnclosed" -> {
+                    if (txObject.enclosedValue != null && txObject.innerIdentifier != null) {
+
+                        // check if the inner value id exists
+                        checkStateWithIdExists(EncapsulatedState::class.java, txObject.innerIdentifier)
 
                         val queriedEncapsulatedState =
                             serviceHub.vaultService.queryBy<EncapsulatedState>().states.single { it.state.data.linearId.id == txObject.innerIdentifier }
 
                         val encapsulatedState = EncapsulatedState(
-                            txObject.enclosingValue,
+                            txObject.enclosedValue,
                             listOf(ourIdentity, counterParty),
                             UniqueIdentifier(id = txObject.innerIdentifier)
                         )
 
-                        progressTracker.currentStep =
-                            ProgressTracker.Step("Creating transaction : Update \"Encapsulated\" with identifier: ${encapsulatedState.linearId.id}")
 
                         TransactionBuilder(getDefaultNotary(serviceHub))
                             .addInputState(queriedEncapsulatedState)
                             .addOutputState(encapsulatedState)
+                            .addCommand(ExampleContract.Commands.UpdateEnclosed(), listOf(ourIdentity.owningKey, counterParty.owningKey))
 
                     } else fail("Update of Encapsulated state should include the enclosing value and the state identifier to be updated")
                 }
@@ -153,6 +160,17 @@ object ExampleFlows {
             }
         }
 
+        // check if the provided id exists
+        private inline fun <reified T: ContractState> checkStateWithIdExists(type: Class<T>, identifier: UUID) {
+            val linearStateQueryCriteria = QueryCriteria.LinearStateQueryCriteria(uuid = listOf(identifier),
+                status = Vault.StateStatus.UNCONSUMED,
+                contractStateTypes = setOf(type),
+                relevancyStatus = Vault.RelevancyStatus.ALL)
+            require(serviceHub.vaultService.queryBy<T>(linearStateQueryCriteria).states.isNotEmpty()
+            ) { "Provided $identifier do not correspond to any matching states" }
+        }
+
+        @Suspendable
         override fun call(): SignedTransaction {
 
             progressTracker.currentStep = BUILDING_THE_TX
@@ -166,12 +184,12 @@ object ExampleFlows {
             progressTracker.currentStep = WE_SIGN
             val selfSignedTransaction = serviceHub.signInitialTransaction(txBuilder)
 
-            progressTracker.currentStep = FINALISING
+
+            progressTracker.currentStep = COLLECTING_SIGS_AND_FINALITY
 
             return subFlow(
                 CollectSignaturesAndFinalizeTransactionFlow(
                     selfSignedTransaction,
-                    progressTracker,
                     null,
                     setOf(counterParty),
                     setOf(counterParty, ourIdentity)))
@@ -180,9 +198,11 @@ object ExampleFlows {
     }
 
     @InitiatedBy(InitiatorFlow::class)
-    class ResponderFlow : FlowLogic<Unit>() {
-        override fun call() {
+    class ResponderFlow(val counterpartySession: FlowSession) : FlowLogic<Unit>() {
 
+        @Suspendable
+        override fun call() {
+            // we have nothing to do here...
         }
 
     }

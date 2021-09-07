@@ -14,7 +14,6 @@ import java.io.Serializable
 import java.util.*
 import javax.persistence.Column
 import javax.persistence.Entity
-import javax.persistence.Id
 import javax.persistence.Table
 
 
@@ -24,10 +23,23 @@ import javax.persistence.Table
 // =========================================================================================================
 
 
+
+@BelongsToContract(ExampleContract::class)
 data class EncapsulatedState(
     val enclosingValue: String,
     override val participants: List<AbstractParty>,
-    override val linearId: UniqueIdentifier = UniqueIdentifier()) : LinearState
+    override val linearId: UniqueIdentifier = UniqueIdentifier()) : LinearState, QueryableState {
+    override fun generateMappedObject(schema: MappedSchema): PersistentState {
+        if (schema is ExampleSchemaV1) {
+            return ExampleSchemaV1.EncapsulatedSchema(enclosingValue, linearId.id)
+        }else{
+            throw IllegalArgumentException("Unsupported Schema")
+        }
+    }
+
+    override fun supportedSchemas(): Iterable<MappedSchema> = listOf(ExampleSchemaV1)
+
+}
 
 
 
@@ -66,10 +78,10 @@ object ExampleSchema
 object ExampleSchemaV1 : MappedSchema(
     schemaFamily = ExampleSchema.javaClass,
     version = 1,
-    mappedTypes = listOf()
+    mappedTypes = listOf(EncapsulatedSchema::class.java, EncapsulatingSchema::class.java)
 ) {
     override val migrationResource: String?
-        get() = "super.migrationResource"
+        get() = "example.changelog-master"
 
     @Entity
     @Table(name = "ENCAPSULATED")
@@ -78,11 +90,10 @@ object ExampleSchemaV1 : MappedSchema(
         @Column(name="value")
         val enclosingValue: String,
 
-        @Id
         @Column(name="id")
         @Type(type = "uuid-char")
         val identifier: UUID
-    )
+    ): PersistentState(), Serializable
 
 
     @Entity
@@ -91,7 +102,6 @@ object ExampleSchemaV1 : MappedSchema(
 
 
         @Column(name="id")
-        @Id
         @Type(type = "uuid-char")
         val identifier: UUID,
 
