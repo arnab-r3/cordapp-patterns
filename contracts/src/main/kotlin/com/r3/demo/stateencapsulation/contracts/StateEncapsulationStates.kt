@@ -1,6 +1,6 @@
 package com.template.states
 
-import com.r3.utils.ExampleContract
+import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
 import net.corda.core.contracts.BelongsToContract
 import net.corda.core.contracts.LinearPointer
 import net.corda.core.contracts.LinearState
@@ -24,28 +24,31 @@ import javax.persistence.Table
 
 
 
-@BelongsToContract(ExampleContract::class)
+@BelongsToContract(StateEncapsulationContract::class)
 data class EncapsulatedState(
     val enclosingValue: String,
     override val participants: List<AbstractParty>,
-    override val linearId: UniqueIdentifier = UniqueIdentifier()) : LinearState, QueryableState {
+    override val linearId: UniqueIdentifier = UniqueIdentifier()
+) : LinearState, QueryableState {
+
     override fun generateMappedObject(schema: MappedSchema): PersistentState {
-        if (schema is ExampleSchemaV1) {
-            return ExampleSchemaV1.EncapsulatedSchema(enclosingValue, linearId.id)
+        if (schema is EncapsulationSchemaV1) {
+            return EncapsulationSchemaV1.EncapsulatedSchema(enclosingValue, linearId.id)
         }else{
             throw IllegalArgumentException("Unsupported Schema")
         }
     }
 
-    override fun supportedSchemas(): Iterable<MappedSchema> = listOf(ExampleSchemaV1)
+    override fun supportedSchemas(): Iterable<MappedSchema> = listOf(EncapsulationSchemaV1)
 
+    fun withNewValue(newValue: String) = EncapsulatedState(newValue, participants.toList(), linearId.copy())
 }
 
 
 
 // model the encapsulating state as an independent state with a linear pointer to the encapsulated state.
 // This type of modelling allows the encapsulated state to evolve independently.
-@BelongsToContract(ExampleContract::class)
+@BelongsToContract(StateEncapsulationContract::class)
 data class EncapsulatingState(
     val value: String,
     override val linearId: UniqueIdentifier = UniqueIdentifier(),
@@ -53,9 +56,18 @@ data class EncapsulatingState(
     override val participants: List<AbstractParty>
 ) : QueryableState, LinearState {
 
+
+    constructor(outerValue: String, innerIdentifer: UUID, participants: List<AbstractParty>) : this (
+        value = outerValue,
+        encapsulatedStateIdentifier =
+            LinearPointer(UniqueIdentifier(id = innerIdentifer), EncapsulatedState::class.java),
+        participants = participants
+    )
+
+
     override fun generateMappedObject(schema: MappedSchema): PersistentState {
-        if (schema is ExampleSchemaV1) {
-            return ExampleSchemaV1.EncapsulatingSchema(
+        if (schema is EncapsulationSchemaV1) {
+            return EncapsulationSchemaV1.EncapsulatingSchema(
                 identifier = linearId.id,
                 encapsulatingValue = value,
                 encapsulatedSchemaId = encapsulatedStateIdentifier.pointer.id)
@@ -64,7 +76,16 @@ data class EncapsulatingState(
         }
     }
 
-    override fun supportedSchemas(): Iterable<MappedSchema> = listOf(ExampleSchemaV1)
+    override fun supportedSchemas(): Iterable<MappedSchema> = listOf(EncapsulationSchemaV1)
+
+    fun withNewValues(
+        newValue:String = value,
+        innerIdentifer:UUID = encapsulatedStateIdentifier.pointer.id
+    ) = EncapsulatingState(
+        newValue,
+        linearId.copy(),
+        LinearPointer(UniqueIdentifier(id = innerIdentifer), EncapsulatedState::class.java),
+        participants.toList())
 
 }
 
@@ -73,10 +94,10 @@ data class EncapsulatingState(
 //                      JPA SCHEMA definitions
 // =========================================================================================================
 
-object ExampleSchema
+object EncapsulationSchema
 
-object ExampleSchemaV1 : MappedSchema(
-    schemaFamily = ExampleSchema.javaClass,
+object EncapsulationSchemaV1 : MappedSchema(
+    schemaFamily = EncapsulationSchema.javaClass,
     version = 1,
     mappedTypes = listOf(EncapsulatedSchema::class.java, EncapsulatingSchema::class.java)
 ) {
@@ -114,4 +135,8 @@ object ExampleSchemaV1 : MappedSchema(
 
     ) : PersistentState(), Serializable
 
+}
+
+data class User(val name: String, val age: Int) {
+    constructor(name: String): this(name, -1) {  }
 }

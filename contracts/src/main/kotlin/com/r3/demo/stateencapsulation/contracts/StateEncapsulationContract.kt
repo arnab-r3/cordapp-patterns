@@ -1,4 +1,4 @@
-package com.r3.utils
+package com.r3.demo.stateencapsulation.contracts
 
 import com.template.states.EncapsulatedState
 import com.template.states.EncapsulatingState
@@ -8,7 +8,12 @@ import net.corda.core.contracts.requireSingleCommand
 import net.corda.core.contracts.requireThat
 import net.corda.core.transactions.LedgerTransaction
 
-class ExampleContract : Contract {
+class StateEncapsulationContract : Contract {
+
+    companion object {
+        const val ID = "com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract"
+    }
+
     override fun verify(tx: LedgerTransaction) {
 
         val inputEncapsulatingStates = tx.inputsOfType<EncapsulatingState>()
@@ -16,7 +21,9 @@ class ExampleContract : Contract {
         val outputEncapsulatingStates = tx.outputsOfType<EncapsulatingState>()
         val outputEncapsulatedStates = tx.outputsOfType<EncapsulatedState>()
 
+        // ensure there is a single command and is used from the Command class inside the contract.
         val command = tx.commands.requireSingleCommand<Commands>()
+
         when (command.value) {
             is Commands.CreateEncapsulating ->
                 requireThat {

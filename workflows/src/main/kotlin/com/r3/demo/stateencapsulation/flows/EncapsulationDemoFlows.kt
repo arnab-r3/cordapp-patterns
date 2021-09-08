@@ -1,14 +1,12 @@
-package com.r3.example.flows
+package com.r3.demo.stateencapsulation.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.r3.utils.ExampleContract
+import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
 import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
 import com.template.states.EncapsulatedState
 import com.template.states.EncapsulatingState
 import net.corda.core.contracts.ContractState
-import net.corda.core.contracts.LinearPointer
-import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.node.ServiceHub
@@ -24,7 +22,7 @@ fun fail(message: String): Nothing = throw IllegalArgumentException(message)
 
 fun getDefaultNotary(serviceHub: ServiceHub) = serviceHub.networkMapCache.notaryIdentities.first()
 
-object ExampleFlows {
+object EncapsulationDemoFlows {
 
 
     @StartableByRPC
@@ -41,7 +39,7 @@ object ExampleFlows {
             object BUILDING_THE_TX : ProgressTracker.Step("Building transaction.")
             object VERIFYING_THE_TX : ProgressTracker.Step("Verifying transaction.")
             object WE_SIGN : ProgressTracker.Step("We are signing transaction.")
-            object COLLECTING_SIGS_AND_FINALITY: ProgressTracker.Step("Collecting Signatures & Executing Finality") {
+            object COLLECTING_SIGS_AND_FINALITY : ProgressTracker.Step("Collecting Signatures & Executing Finality") {
                 override fun childProgressTracker() = CollectSignaturesAndFinalizeTransactionFlow.tracker()
             }
 
@@ -62,7 +60,7 @@ object ExampleFlows {
 
         @Suspendable
         private fun createTransaction()
-                : Pair<TransactionBuilder,String> {
+                : Pair<TransactionBuilder, String> {
 
             return when (commandString) {
                 "CreateEncapsulating" -> {
@@ -73,22 +71,16 @@ object ExampleFlows {
                         checkStateWithIdExists(EncapsulatedState::class.java, txObject.innerIdentifier)
 
                         val encapsulatingState =
-                            EncapsulatingState(
-                                txObject.enclosingValue,
-                                UniqueIdentifier(),
-                                LinearPointer(
-                                    UniqueIdentifier(null, txObject.innerIdentifier),
-                                    EncapsulatedState::class.java,
-                                    false),
+                            EncapsulatingState(txObject.enclosingValue,
+                                txObject.innerIdentifier,
                                 listOf(ourIdentity, counterParty))
 
-
-                        Pair(TransactionBuilder(getDefaultNotary(serviceHub))
+                        val txBuilder = TransactionBuilder(getDefaultNotary(serviceHub))
                             .addOutputState(encapsulatingState)
-                            .addCommand(ExampleContract.Commands.CreateEncapsulating(), listOf(ourIdentity.owningKey, counterParty.owningKey)),
-                            """
-                                Encapsulating created, ID: ${encapsulatingState.linearId.id}
-                            """.trimIndent())
+                            .addCommand(StateEncapsulationContract.Commands.CreateEncapsulating(),
+                                listOf(ourIdentity.owningKey, counterParty.owningKey))
+
+                        Pair(txBuilder, "Encapsulating created, ID: ${encapsulatingState.linearId.id}")
 
                     } else fail("Create Encapsulating state must accompany the inner identifier and the outer enclosing value")
 
@@ -102,27 +94,28 @@ object ExampleFlows {
                         checkStateWithIdExists(EncapsulatingState::class.java, txObject.outerIdentifier)
 
                         val queriedEncapsulatingState =
-                            serviceHub.vaultService.queryBy<EncapsulatingState>().states.single { it.state.data.linearId.id == txObject.outerIdentifier }
+                            serviceHub
+                                .vaultService
+                                .queryBy<EncapsulatingState>()
+                                .states
+                                .single { it.state.data.linearId.id == txObject.outerIdentifier }
 
                         val encapsulatingState =
-                            EncapsulatingState(
-                                txObject.enclosingValue,
-                                UniqueIdentifier(id = txObject.outerIdentifier),
-                                LinearPointer(
-                                    UniqueIdentifier(null, txObject.innerIdentifier),
-                                    EncapsulatedState::class.java,
-                                    false),
-                                listOf(ourIdentity, counterParty))
+                            queriedEncapsulatingState
+                                .state
+                                .data
+                                .withNewValues(txObject.enclosingValue,txObject.innerIdentifier)
 
 
-                        Pair(TransactionBuilder(getDefaultNotary(serviceHub))
+                        val txBuilder = TransactionBuilder(getDefaultNotary(serviceHub))
                             .addOutputState(encapsulatingState)
                             .addInputState(queriedEncapsulatingState)
-                            .addCommand(ExampleContract.Commands.UpdateEncapsulating(), listOf(ourIdentity.owningKey, counterParty.owningKey)),
-                            """
-                                Encapsulating updated with inner identifier: ${txObject.innerIdentifier}
-                                and outer identifier: ${txObject.outerIdentifier}
-                            """.trimIndent())
+                            .addCommand(StateEncapsulationContract.Commands.UpdateEncapsulating(),
+                                listOf(ourIdentity.owningKey, counterParty.owningKey))
+
+                        Pair(txBuilder,
+                                "Encapsulating updated with inner identifier: ${txObject.innerIdentifier} and outer identifier: ${txObject.outerIdentifier}")
+
                     } else fail("Update Encapsulating state must accompany the inner and outer identifiers and the outer enclosing value")
 
                 }
@@ -132,12 +125,12 @@ object ExampleFlows {
                         val encapsulatedState =
                             EncapsulatedState(txObject.enclosedValue, listOf(ourIdentity, counterParty))
 
-                        Pair(TransactionBuilder(getDefaultNotary(serviceHub))
+                        val txBuilder = TransactionBuilder(getDefaultNotary(serviceHub))
                             .addOutputState(encapsulatedState)
-                            .addCommand(ExampleContract.Commands.CreateEnclosed(), listOf(ourIdentity.owningKey, counterParty.owningKey)),
-                            """
-                                Encapsulated created with identifier ${encapsulatedState.linearId.id}
-                            """.trimIndent())
+                            .addCommand(StateEncapsulationContract.Commands.CreateEnclosed(),
+                                listOf(ourIdentity.owningKey, counterParty.owningKey))
+
+                        Pair(txBuilder, "Encapsulated created with identifier ${encapsulatedState.linearId.id}")
 
                     } else fail("Create of Encapsulated state should include the enclosing value")
 
@@ -149,22 +142,25 @@ object ExampleFlows {
                         checkStateWithIdExists(EncapsulatedState::class.java, txObject.innerIdentifier)
 
                         val queriedEncapsulatedState =
-                            serviceHub.vaultService.queryBy<EncapsulatedState>().states.single { it.state.data.linearId.id == txObject.innerIdentifier }
+                            serviceHub
+                                .vaultService
+                                .queryBy<EncapsulatedState>()
+                                .states
+                                .single { it.state.data.linearId.id == txObject.innerIdentifier }
 
-                        val encapsulatedState = EncapsulatedState(
-                            txObject.enclosedValue,
-                            listOf(ourIdentity, counterParty),
-                            UniqueIdentifier(id = txObject.innerIdentifier)
-                        )
+                        val encapsulatedState =
+                            queriedEncapsulatedState
+                                .state
+                                .data
+                                .withNewValue(txObject.enclosedValue)
 
-
-                        Pair(TransactionBuilder(getDefaultNotary(serviceHub))
+                        val txBuilder = TransactionBuilder(getDefaultNotary(serviceHub))
                             .addInputState(queriedEncapsulatedState)
                             .addOutputState(encapsulatedState)
-                            .addCommand(ExampleContract.Commands.UpdateEnclosed(), listOf(ourIdentity.owningKey, counterParty.owningKey)),
-                            """
-                                Encapsulated Updated with id: ${txObject.innerIdentifier}
-                            """.trimIndent())
+                            .addCommand(StateEncapsulationContract.Commands.UpdateEnclosed(),
+                                listOf(ourIdentity.owningKey, counterParty.owningKey))
+
+                        Pair(txBuilder, "Encapsulated Updated with id: ${txObject.innerIdentifier}".trimIndent())
 
                     } else fail("Update of Encapsulated state should include the enclosing value and the state identifier to be updated")
                 }
@@ -173,7 +169,7 @@ object ExampleFlows {
         }
 
         // check if the provided id exists
-        private inline fun <reified T: ContractState> checkStateWithIdExists(type: Class<T>, identifier: UUID) {
+        private inline fun <reified T : ContractState> checkStateWithIdExists(type: Class<T>, identifier: UUID) {
             val linearStateQueryCriteria = QueryCriteria.LinearStateQueryCriteria(
                 uuid = listOf(identifier),
                 contractStateTypes = setOf(type))

@@ -1,34 +1,93 @@
 package com.template.contracts
 
-import net.corda.core.identity.CordaX500Name
-import net.corda.testing.core.TestIdentity
+import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
+import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract.Commands.*
+import com.r3.examples.testing.BaseContractTests
+import com.r3.examples.testing.Identities
 import net.corda.testing.node.MockServices
 import net.corda.testing.node.ledger
 import org.junit.Test
-import com.template.states.TemplateState
 
-class ContractTests {
-    private val ledgerServices: MockServices = MockServices(listOf("com.template"))
-    var alice = TestIdentity(CordaX500Name("Alice", "TestLand", "US"))
-    var bob = TestIdentity(CordaX500Name("Alice", "TestLand", "US"))
+class ContractTests : BaseContractTests() {
+    private val ledgerServices: MockServices = MockServices(listOf("com.r3.demo.stateencapsulation.contracts"))
+
 
     @Test
-    fun dummytest() {
-        val state = TemplateState("Hello-World", alice.party, bob.party)
+    fun `can issue encapsulating state`() {
+
+        val encapsulated = getNewEncapsulatedState()
+        val encapsulating = getNewEncapsulatingState(encapsulated.linearId.id)
+
         ledgerServices.ledger {
-            // Should fail bid price is equal to previous highest bid
             transaction {
-                //failing transaction
-                input(TemplateContract.ID, state)
-                output(TemplateContract.ID, state)
-                command(alice.publicKey, TemplateContract.Commands.Create())
+                input(StateEncapsulationContract.ID, encapsulating)
+                command(getAllSignersPublicKeys(), CreateEncapsulating())
                 fails()
             }
-            //pass
             transaction {
-                //passing transaction
-                output(TemplateContract.ID, state)
-                command(alice.publicKey, TemplateContract.Commands.Create())
+                output(StateEncapsulationContract.ID, encapsulating)
+                command(getAllSignersPublicKeys(), CreateEncapsulating())
+                verifies()
+            }
+            transaction {
+                output(StateEncapsulationContract.ID, encapsulating)
+                output(StateEncapsulationContract.ID, encapsulating)
+                command(getAllSignersPublicKeys(), CreateEncapsulating())
+                fails()
+            }
+        }
+    }
+
+    @Test
+    fun `can issue encapsulated state`() {
+        val encapsulated = getNewEncapsulatedState()
+        ledgerServices.ledger {
+            transaction {
+                input(StateEncapsulationContract.ID, encapsulated)
+                command(getAllSignersPublicKeys(), CreateEnclosed())
+                fails()
+            }
+            transaction {
+                output(StateEncapsulationContract.ID, encapsulated)
+                input(StateEncapsulationContract.ID, encapsulated)
+                command(getAllSignersPublicKeys(), CreateEnclosed())
+                fails()
+            }
+            transaction {
+                output(StateEncapsulationContract.ID, encapsulated)
+                command(getAllSignersPublicKeys(), CreateEnclosed())
+                verifies()
+            }
+        }
+    }
+
+    @Test
+    fun `can update encapsulated state`() {
+        val encapsulated = getNewEncapsulatedState()
+        val otherEncapsulated = getNewEncapsulatedState()
+
+        ledgerServices.ledger {
+            transaction {
+                input(StateEncapsulationContract.ID, encapsulated)
+                output(StateEncapsulationContract.ID, otherEncapsulated)
+                command(getAllSignersPublicKeys(), UpdateEnclosed())
+                fails()
+            }
+            transaction {
+                output(StateEncapsulationContract.ID, encapsulated)
+                input(StateEncapsulationContract.ID, encapsulated)
+                command(getAllSignersPublicKeys(), UpdateEnclosed())
+                verifies()
+            }
+            transaction {
+                output(StateEncapsulationContract.ID, encapsulated)
+                command(listOf(Identities.BOB.publicKey), UpdateEnclosed())
+                fails()
+            }
+            transaction {
+                input(StateEncapsulationContract.ID, encapsulated)
+                output(StateEncapsulationContract.ID, encapsulated)
+                command(listOf(Identities.BOB.publicKey), UpdateEnclosed())
                 verifies()
             }
         }
