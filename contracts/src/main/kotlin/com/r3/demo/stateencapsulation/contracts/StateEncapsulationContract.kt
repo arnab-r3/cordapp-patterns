@@ -25,59 +25,44 @@ class StateEncapsulationContract : Contract {
         val command = tx.commands.requireSingleCommand<Commands>()
 
         when (command.value) {
+
             is Commands.CreateEncapsulating ->
                 requireThat {
-
-                    "Create Command should not have any inputs" using
-                            (inputEncapsulatedStates.isEmpty() && inputEncapsulatedStates.isEmpty())
-
-                    "Create Command should have only one output" using
-                            (outputEncapsulatingStates.size == 1 && outputEncapsulatedStates.isEmpty())
-
+                    "${command.value} Command should not have any inputs" using tx.inputStates.isEmpty()
+                    "${command.value} Command should not produce encapsulated states" using inputEncapsulatedStates.isEmpty()
+                    "${command.value} Command should produce a single encapsulating state" using (inputEncapsulatingStates.size == 1)
                 }
 
-            is Commands.CreateEnclosed ->
+            is Commands.CreateEncapsulated ->
                 requireThat {
-                    "Create Command should not have any inputs" using
-                            (inputEncapsulatedStates.isEmpty() && inputEncapsulatedStates.isEmpty())
-
-                    "Create Command should have only one output" using
-                            (outputEncapsulatingStates.isEmpty() && outputEncapsulatedStates.size == 1)
-
+                    "${command.value} Command should not have any inputs" using tx.inputStates.isEmpty()
+                    "${command.value} Command should not produce encapsulating states" using (inputEncapsulatingStates.isEmpty())
+                    "${command.value} Command should not produce a single encapsulated state" using (inputEncapsulatedStates.size == 1)
                 }
+
             is Commands.UpdateEncapsulating ->
-
-
                 requireThat {
-
-                    // ensure that we are not spending or creating any encapsulated state
-                    "Update should not contain any encapsulated state as input or encapsulating state as out" using
-                            (inputEncapsulatedStates.isEmpty() && outputEncapsulatedStates.isEmpty())
-
-
-                    // ensure that we are spending exactly one encapsulating state and creating an encapsulating state
-                    "Update command should have one input" using (inputEncapsulatingStates.size == 1)
-                    "Update command should have one output" using (outputEncapsulatingStates.size == 1)
-
-                    //ensure that the created encapsulating state is the updated one and we are not creating any new ones
-                    "Update should produce the same encapsulating state" using
-                            (inputEncapsulatingStates.single().linearId == outputEncapsulatingStates.single().linearId)
-
-                    "Update should use the same encapsulated state" using
-                            (inputEncapsulatingStates.single().encapsulatedStateIdentifier == outputEncapsulatingStates.single().encapsulatedStateIdentifier)
-
-
+                    "${command.value} Command should not produce any encapsulated state" using outputEncapsulatedStates.isEmpty()
+                    "${command.value} Command should not consume any encapsulated state" using inputEncapsulatedStates.isEmpty()
+                    "${command.value} Command should produce exactly one encapsulating state" using (outputEncapsulatingStates.size == 1)
+                    "${command.value} Command should consume exactly one encapsulating state" using (inputEncapsulatingStates.size == 1)
+                    "${command.value} Command should use the same encapsulated state identifier" using
+                            (inputEncapsulatingStates.single().encapsulatedStateIdentifier
+                                    == outputEncapsulatingStates.single().encapsulatedStateIdentifier)
+                    "${command.value} Command should update the same encapsulating state" using
+                            (inputEncapsulatingStates.single().linearId
+                                    == outputEncapsulatingStates.single().linearId)
                 }
-            is Commands.UpdateEnclosed ->
+
+            is Commands.UpdateEncapsulated ->
                 requireThat {
-                    "Updating the enclosed transaction should not contain the enclosing transaction as input or output" using
-                            (outputEncapsulatingStates.isEmpty() && inputEncapsulatingStates.isEmpty())
-                    "Updating the enclosed state should have one input and one output" using
-                            (inputEncapsulatedStates.size == 1 && outputEncapsulatedStates.size == 1)
-
-                    "Updating the encapsulated state should use the same identifier as the input and output" using
-                            (inputEncapsulatedStates.single().linearId == outputEncapsulatedStates.single().linearId)
-
+                    "${command.value} Command should not produce any encapsulating state" using outputEncapsulatedStates.isEmpty()
+                    "${command.value} Command should not consume any encapsulating state" using inputEncapsulatingStates.isEmpty()
+                    "${command.value} Command should produce exactly one encapsulated state" using (outputEncapsulatedStates.size == 1)
+                    "${command.value} Command should consume exactly one encapsulated state" using (inputEncapsulatedStates.size == 1)
+                    "${command.value} Command should update the same encapsulating state" using
+                            (inputEncapsulatedStates.single().linearId
+                                    == outputEncapsulatedStates.single().linearId)
                 }
         }
     }
@@ -85,8 +70,8 @@ class StateEncapsulationContract : Contract {
     interface Commands : CommandData {
         class CreateEncapsulating : Commands
         class UpdateEncapsulating : Commands
-        class UpdateEnclosed : Commands
-        class CreateEnclosed : Commands
+        class UpdateEncapsulated : Commands
+        class CreateEncapsulated : Commands
 
 
     }

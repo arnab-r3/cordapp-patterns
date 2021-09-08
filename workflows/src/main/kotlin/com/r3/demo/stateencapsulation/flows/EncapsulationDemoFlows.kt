@@ -127,7 +127,7 @@ object EncapsulationDemoFlows {
 
                         val txBuilder = TransactionBuilder(getDefaultNotary(serviceHub))
                             .addOutputState(encapsulatedState)
-                            .addCommand(StateEncapsulationContract.Commands.CreateEnclosed(),
+                            .addCommand(StateEncapsulationContract.Commands.CreateEncapsulated(),
                                 listOf(ourIdentity.owningKey, counterParty.owningKey))
 
                         Pair(txBuilder, "Encapsulated created with identifier ${encapsulatedState.linearId.id}")
@@ -157,7 +157,7 @@ object EncapsulationDemoFlows {
                         val txBuilder = TransactionBuilder(getDefaultNotary(serviceHub))
                             .addInputState(queriedEncapsulatedState)
                             .addOutputState(encapsulatedState)
-                            .addCommand(StateEncapsulationContract.Commands.UpdateEnclosed(),
+                            .addCommand(StateEncapsulationContract.Commands.UpdateEncapsulated(),
                                 listOf(ourIdentity.owningKey, counterParty.owningKey))
 
                         Pair(txBuilder, "Encapsulated Updated with id: ${txObject.innerIdentifier}".trimIndent())

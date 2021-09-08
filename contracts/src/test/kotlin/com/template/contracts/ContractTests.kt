@@ -1,9 +1,7 @@
 package com.template.contracts
 
-import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
 import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract.Commands.*
 import com.r3.examples.testing.BaseContractTests
-import com.r3.examples.testing.Identities
 import net.corda.testing.node.MockServices
 import net.corda.testing.node.ledger
 import org.junit.Test
@@ -20,18 +18,18 @@ class ContractTests : BaseContractTests() {
 
         ledgerServices.ledger {
             transaction {
-                input(StateEncapsulationContract.ID, encapsulating)
+                input(encapsulating)
                 command(getAllSignersPublicKeys(), CreateEncapsulating())
                 fails()
             }
             transaction {
-                output(StateEncapsulationContract.ID, encapsulating)
+                output(encapsulating)
                 command(getAllSignersPublicKeys(), CreateEncapsulating())
                 verifies()
             }
             transaction {
-                output(StateEncapsulationContract.ID, encapsulating)
-                output(StateEncapsulationContract.ID, encapsulating)
+                output(encapsulating)
+                output(encapsulating)
                 command(getAllSignersPublicKeys(), CreateEncapsulating())
                 fails()
             }
@@ -43,19 +41,19 @@ class ContractTests : BaseContractTests() {
         val encapsulated = getNewEncapsulatedState()
         ledgerServices.ledger {
             transaction {
-                input(StateEncapsulationContract.ID, encapsulated)
-                command(getAllSignersPublicKeys(), CreateEnclosed())
+                input(encapsulated)
+                command(getAllSignersPublicKeys(), CreateEncapsulated())
                 fails()
             }
             transaction {
-                output(StateEncapsulationContract.ID, encapsulated)
-                input(StateEncapsulationContract.ID, encapsulated)
-                command(getAllSignersPublicKeys(), CreateEnclosed())
+                output(encapsulated)
+                input(encapsulated)
+                command(getAllSignersPublicKeys(), CreateEncapsulated())
                 fails()
             }
             transaction {
-                output(StateEncapsulationContract.ID, encapsulated)
-                command(getAllSignersPublicKeys(), CreateEnclosed())
+                output(encapsulated)
+                command(getAllSignersPublicKeys(), CreateEncapsulated())
                 verifies()
             }
         }
@@ -68,26 +66,26 @@ class ContractTests : BaseContractTests() {
 
         ledgerServices.ledger {
             transaction {
-                input(StateEncapsulationContract.ID, encapsulated)
-                output(StateEncapsulationContract.ID, otherEncapsulated)
-                command(getAllSignersPublicKeys(), UpdateEnclosed())
+                input(encapsulated)
+                output(otherEncapsulated)
+                command(getAllSignersPublicKeys(), UpdateEncapsulated())
                 fails()
             }
             transaction {
-                output(StateEncapsulationContract.ID, encapsulated)
-                input(StateEncapsulationContract.ID, encapsulated)
-                command(getAllSignersPublicKeys(), UpdateEnclosed())
+                output(encapsulated)
+                input(encapsulated)
+                command(getAllSignersPublicKeys(), UpdateEncapsulated())
                 verifies()
             }
             transaction {
-                output(StateEncapsulationContract.ID, encapsulated)
-                command(listOf(Identities.BOB.publicKey), UpdateEnclosed())
+                output(encapsulated)
+                command(getAllSignersPublicKeys(), UpdateEncapsulated())
                 fails()
             }
             transaction {
-                input(StateEncapsulationContract.ID, encapsulated)
-                output(StateEncapsulationContract.ID, encapsulated)
-                command(listOf(Identities.BOB.publicKey), UpdateEnclosed())
+                input(encapsulated)
+                output(encapsulated)
+                command(getAllSignersPublicKeys(), UpdateEncapsulated())
                 verifies()
             }
         }
