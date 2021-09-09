@@ -29,15 +29,15 @@ class StateEncapsulationContract : Contract {
             is Commands.CreateEncapsulating ->
                 requireThat {
                     "CreateEncapsulating Command should not have any inputs" using tx.inputStates.isEmpty()
-                    "CreateEncapsulating Command should not produce encapsulated states" using inputEncapsulatedStates.isEmpty()
-                    "CreateEncapsulating Command should produce a single encapsulating state" using (inputEncapsulatingStates.size == 1)
+                    "CreateEncapsulating Command should not produce encapsulated states" using outputEncapsulatedStates.isEmpty()
+                    "CreateEncapsulating Command should produce a single encapsulating state" using (outputEncapsulatingStates.size == 1)
                 }
 
             is Commands.CreateEncapsulated ->
                 requireThat {
                     "CreateEncapsulated Command should not have any inputs" using tx.inputStates.isEmpty()
-                    "CreateEncapsulated Command should not produce encapsulating states" using (inputEncapsulatingStates.isEmpty())
-                    "CreateEncapsulated Command should not produce a single encapsulated state" using (inputEncapsulatedStates.size == 1)
+                    "CreateEncapsulated Command should not produce encapsulating states" using outputEncapsulatingStates.isEmpty()
+                    "CreateEncapsulated Command should produce a single encapsulated state" using (outputEncapsulatedStates.size == 1)
                 }
 
             is Commands.UpdateEncapsulating ->
@@ -56,7 +56,7 @@ class StateEncapsulationContract : Contract {
 
             is Commands.UpdateEncapsulated ->
                 requireThat {
-                    "UpdateEncapsulated Command should not produce any encapsulating state" using outputEncapsulatedStates.isEmpty()
+                    "UpdateEncapsulated Command should not produce any encapsulating state" using outputEncapsulatingStates.isEmpty()
                     "UpdateEncapsulated Command should not consume any encapsulating state" using inputEncapsulatingStates.isEmpty()
                     "UpdateEncapsulated Command should produce exactly one encapsulated state" using (outputEncapsulatedStates.size == 1)
                     "UpdateEncapsulated Command should consume exactly one encapsulated state" using (inputEncapsulatedStates.size == 1)

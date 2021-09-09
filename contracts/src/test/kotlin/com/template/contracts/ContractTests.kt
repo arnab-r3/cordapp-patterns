@@ -90,4 +90,56 @@ class ContractTests : BaseContractTests() {
             }
         }
     }
+
+    @Test
+    fun `can update encapsulating state`() {
+        val encapsulated = getNewEncapsulatedState()
+        val encapsulatingState = getNewEncapsulatingState(encapsulated.linearId.id)
+
+        val otherEncapsulatedState = getNewEncapsulatedState()
+        val otherEncapsulatingState = getNewEncapsulatingState(otherEncapsulatedState.linearId.id)
+
+        ledgerServices.ledger {
+            transaction {
+                output(encapsulatingState)
+                command(getAllSignersPublicKeys(), UpdateEncapsulating())
+                fails()
+            }
+            transaction {
+                output(encapsulated)
+                command(getAllSignersPublicKeys(), UpdateEncapsulating())
+                fails()
+            }
+            transaction {
+                input(encapsulatingState)
+                output(encapsulated)
+                command(getAllSignersPublicKeys(), UpdateEncapsulating())
+                fails()
+            }
+            transaction {
+                input(encapsulated)
+                output(encapsulated)
+                command(getAllSignersPublicKeys(), UpdateEncapsulating())
+                fails()
+            }
+            transaction {
+                input(encapsulated)
+                output(encapsulatingState)
+                command(getAllSignersPublicKeys(), UpdateEncapsulating())
+                fails()
+            }
+            transaction {
+                input(otherEncapsulatingState)
+                output(encapsulatingState)
+                command(getAllSignersPublicKeys(), UpdateEncapsulating())
+                fails()
+            }
+            transaction {
+                input(encapsulatingState)
+                output(encapsulatingState)
+                command(getAllSignersPublicKeys(), UpdateEncapsulating())
+                verifies()
+            }
+        }
+    }
 }
