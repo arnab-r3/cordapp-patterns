@@ -1,7 +1,7 @@
 package com.r3.examples.testing
 
-import com.template.states.EncapsulatedState
-import com.template.states.EncapsulatingState
+import com.r3.demo.stateencapsulation.contracts.EncapsulatedState
+import com.r3.demo.stateencapsulation.contracts.EncapsulatingState
 import net.corda.core.contracts.ContractState
 import net.corda.testing.dsl.TransactionDSL
 import net.corda.testing.dsl.TransactionDSLInterpreter

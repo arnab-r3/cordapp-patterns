@@ -1,7 +1,5 @@
 package com.r3.demo.stateencapsulation.contracts
 
-import com.template.states.EncapsulatedState
-import com.template.states.EncapsulatingState
 import net.corda.core.contracts.CommandData
 import net.corda.core.contracts.Contract
 import net.corda.core.contracts.requireSingleCommand
@@ -52,6 +50,8 @@ class StateEncapsulationContract : Contract {
                     "UpdateEncapsulating Command should update the same encapsulating state" using
                             (inputEncapsulatingStates.single().linearId
                                     == outputEncapsulatingStates.single().linearId)
+                    "UpdateEncapsulating Command should not modify the list of participants" using
+                            (inputEncapsulatingStates.single().participants.containsAll(outputEncapsulatingStates.single().participants))
                 }
 
             is Commands.UpdateEncapsulated ->
@@ -63,6 +63,8 @@ class StateEncapsulationContract : Contract {
                     "UpdateEncapsulated Command should update the same encapsulating state" using
                             (inputEncapsulatedStates.single().linearId
                                     == outputEncapsulatedStates.single().linearId)
+                    "UpdateEncapsulated Command should not modify the list of participants" using
+                            (inputEncapsulatedStates.single().participants.containsAll(outputEncapsulatedStates.single().participants))
                 }
         }
     }

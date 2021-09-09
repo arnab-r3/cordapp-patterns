@@ -1,6 +1,5 @@
-package com.template.states
+package com.r3.demo.stateencapsulation.contracts
 
-import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
 import net.corda.core.contracts.BelongsToContract
 import net.corda.core.contracts.LinearPointer
 import net.corda.core.contracts.LinearState
@@ -26,22 +25,22 @@ import javax.persistence.Table
 
 @BelongsToContract(StateEncapsulationContract::class)
 data class EncapsulatedState(
-    val enclosingValue: String,
+    val innerValue: String,
     override val participants: List<AbstractParty>,
     override val linearId: UniqueIdentifier = UniqueIdentifier()
 ) : LinearState, QueryableState {
 
     override fun generateMappedObject(schema: MappedSchema): PersistentState {
-        if (schema is EncapsulationSchemaV1) {
-            return EncapsulationSchemaV1.EncapsulatedSchema(enclosingValue, linearId.id)
-        }else{
-            throw IllegalArgumentException("Unsupported Schema")
+        return when (schema) {
+            is EncapsulationSchemaV1 -> EncapsulationSchemaV1.EncapsulatedSchema(innerValue, linearId.id)
+            else -> throw IllegalArgumentException("Unsupported Schema")
         }
     }
 
     override fun supportedSchemas(): Iterable<MappedSchema> = listOf(EncapsulationSchemaV1)
 
-    fun withNewValue(newValue: String) = EncapsulatedState(newValue, participants.toList(), linearId.copy())
+    fun withNewValue(newValue: String) =
+        EncapsulatedState(newValue, participants.toList(), linearId.copy())
 }
 
 
@@ -50,7 +49,7 @@ data class EncapsulatedState(
 // This type of modelling allows the encapsulated state to evolve independently.
 @BelongsToContract(StateEncapsulationContract::class)
 data class EncapsulatingState(
-    val value: String,
+    val outerValue: String,
     override val linearId: UniqueIdentifier = UniqueIdentifier(),
     val encapsulatedStateIdentifier : LinearPointer<EncapsulatedState>,
     override val participants: List<AbstractParty>
@@ -58,7 +57,7 @@ data class EncapsulatingState(
 
 
     constructor(outerValue: String, innerIdentifer: UUID, participants: List<AbstractParty>) : this (
-        value = outerValue,
+        outerValue = outerValue,
         encapsulatedStateIdentifier =
             LinearPointer(UniqueIdentifier(id = innerIdentifer), EncapsulatedState::class.java),
         participants = participants
@@ -66,20 +65,21 @@ data class EncapsulatingState(
 
 
     override fun generateMappedObject(schema: MappedSchema): PersistentState {
-        if (schema is EncapsulationSchemaV1) {
-            return EncapsulationSchemaV1.EncapsulatingSchema(
+
+        return when (schema) {
+            is EncapsulationSchemaV1 -> EncapsulationSchemaV1.EncapsulatingSchema(
                 identifier = linearId.id,
-                encapsulatingValue = value,
+                encapsulatingValue = outerValue,
                 encapsulatedSchemaId = encapsulatedStateIdentifier.pointer.id)
-        }else{
-            throw IllegalArgumentException("Unsupported Schema")
+            else -> throw IllegalArgumentException("Unsupported Schema")
         }
+
     }
 
     override fun supportedSchemas(): Iterable<MappedSchema> = listOf(EncapsulationSchemaV1)
 
     fun withNewValues(
-        newValue:String = value,
+        newValue:String = outerValue,
         innerIdentifer:UUID = encapsulatedStateIdentifier.pointer.id
     ) = EncapsulatingState(
         newValue,

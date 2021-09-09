@@ -4,8 +4,8 @@ import co.paralleluniverse.fibers.Suspendable
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
 import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
-import com.template.states.EncapsulatedState
-import com.template.states.EncapsulatingState
+import com.r3.demo.stateencapsulation.contracts.EncapsulatedState
+import com.r3.demo.stateencapsulation.contracts.EncapsulatingState
 import net.corda.core.contracts.ContractState
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
