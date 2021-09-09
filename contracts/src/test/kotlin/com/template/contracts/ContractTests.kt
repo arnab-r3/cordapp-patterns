@@ -1,14 +1,15 @@
 package com.template.contracts
 
+import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
 import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract.Commands.*
 import com.r3.examples.testing.BaseContractTests
 import net.corda.testing.node.MockServices
 import net.corda.testing.node.ledger
 import org.junit.Test
 
-class ContractTests : BaseContractTests() {
-    private val ledgerServices: MockServices = MockServices(listOf("com.r3.demo.stateencapsulation.contracts"))
+class ContractTests : BaseContractTests(StateEncapsulationContract.ID) {
 
+    private val ledgerServices: MockServices = MockServices(listOf("com.r3.demo.stateencapsulation.contracts"))
 
     @Test
     fun `can issue encapsulating state`() {
