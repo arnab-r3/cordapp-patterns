@@ -28,36 +28,52 @@ From Party A execute the following:
 flow start EncapsulationDemoFlows$InitiatorFlow commandString: CreateEncapsulated, txObject: { "enclosedValue":"test-inner"}, counterParty: PartyB
 ```
 
+You will get an output like the one below:
+
+```shell
+Flow completed with result: Encapsulated created with identifier <INNER_IDENTIFIER>, Tx ID: 7DAFB3D816B67FE61F6C80C667AC36E4ECBCB3F27B18FFE5654E01FC6A7230C2
+```
+
+> Be sure to update the `INNER_IDENTIFIER` with the above encapsulated identifier.
 
 ### Update Inner
 
 ```shell
-flow start EncapsulationDemoFlows$InitiatorFlow commandString: UpdateEncapsulated, txObject: { "enclosedValue":"new-test-inner", "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1"}, counterParty: PartyB
+flow start EncapsulationDemoFlows$InitiatorFlow commandString: UpdateEncapsulated, txObject: { "enclosedValue":"new-test-inner", "innerIdentifier":"<INNER_IDENTIFIER>"}, counterParty: PartyB
 ```
 
 
 ### Create outer with reference to the inner
 
 ```shell
-flow start EncapsulationDemoFlows$InitiatorFlow commandString: CreateEncapsulating, txObject: { "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1", "enclosingValue":"outer-value"}, counterParty: PartyB
+flow start EncapsulationDemoFlows$InitiatorFlow commandString: CreateEncapsulating, txObject: { "innerIdentifier":"<INNER_IDENTIFIER>", "enclosingValue":"outer-value"}, counterParty: PartyB
 ```
+
+You will get an output like the one below:
+
+```shell
+Flow completed with result: Encapsulating created, ID: a06a0d78-ad7b-4f1e-8674-b98ce1f4ecac, Tx ID: 1C2294E44A9CC9595F32C20511822B98E289613D193A07177DC41297AA4CAF3A
+
+```
+> Be sure to update the `OUTER_IDENTIFER` with the above encapsulating identifier.
+
 
 ### Create outer with reference to the same inner
 
 ```shell
-flow start EncapsulationDemoFlows$InitiatorFlow commandString: CreateEncapsulating, txObject: { "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1", "enclosingValue":"some-other-outer-value"}, counterParty: PartyB
+flow start EncapsulationDemoFlows$InitiatorFlow commandString: CreateEncapsulating, txObject: { "innerIdentifier":"<INNER_IDENTIFIER>", "enclosingValue":"some-other-outer-value"}, counterParty: PartyB
 ```
 
 ### Update Inner Again
 
 ```shell
-flow start EncapsulationDemoFlows$InitiatorFlow commandString: UpdateEncapsulated, txObject: { "enclosedValue":"brand-new-inner", "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1"}, counterParty: PartyB
+flow start EncapsulationDemoFlows$InitiatorFlow commandString: UpdateEncapsulated, txObject: { "enclosedValue":"brand-new-inner", "innerIdentifier":"<INNER_IDENTIFIER>"}, counterParty: PartyB
 ```
 
 ### Update the last outer keeping the inner same
 
 ```shell
-flow start EncapsulationDemoFlows$InitiatorFlow commandString: UpdateEncapsulating, txObject: { "enclosingValue":"brand-new-outer", "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1", "outerIdentifier":"3c1f082c-35b8-4fd6-81f3-0317b0a17268"}, counterParty: PartyB
+flow start EncapsulationDemoFlows$InitiatorFlow commandString: UpdateEncapsulating, txObject: { "enclosingValue":"brand-new-outer", "innerIdentifier":"<INNER_IDENTIFIER>", "outerIdentifier":"<OUTER_IDENTIFIER>"}, counterParty: PartyB
 ```
 
 ### Query the DB to check the reference to the inner

@@ -121,6 +121,8 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
         cordapp("$confidential_id_release_group:ci-workflows:$confidential_id_release_version")
         cordapp("$accounts_release_group:accounts-contracts:$accounts_release_version")
         cordapp("$accounts_release_group:accounts-workflows:$accounts_release_version")
+        cordapp("net.corda.bn:business-networks-contracts:$corda_bn_extension_version")
+        cordapp("net.corda.bn:business-networks-workflows:$corda_bn_extension_version")
         cordapp project(':contracts')
         cordapp project(':workflows')
         runSchemaMigration = true //This configuration is for any CorDapps with custom schema, We will leave this as true to avoid
