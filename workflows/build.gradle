@@ -62,7 +62,7 @@ dependencies {
     implementation "com.fasterxml.jackson.core:jackson-databind:${jackson}"
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin:${jackson}"
     compile("com.fasterxml.jackson.module:jackson-module-kotlin:${jackson}")
-
+    testCompile project(":testing")
 }
 
 jar {

@@ -2,10 +2,10 @@ package com.r3.demo.stateencapsulation.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
-import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
 import com.r3.demo.stateencapsulation.contracts.EncapsulatedState
 import com.r3.demo.stateencapsulation.contracts.EncapsulatingState
+import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
+import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
 import net.corda.core.contracts.ContractState
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
@@ -119,7 +119,7 @@ object EncapsulationDemoFlows {
                     } else fail("Update Encapsulating state must accompany the inner and outer identifiers and the outer enclosing value")
 
                 }
-                "CreateEnclosed" -> {
+                "CreateEncapsulated" -> {
 
                     if (txObject.enclosedValue != null) {
                         val encapsulatedState =
@@ -135,7 +135,7 @@ object EncapsulationDemoFlows {
                     } else fail("Create of Encapsulated state should include the enclosing value")
 
                 }
-                "UpdateEnclosed" -> {
+                "UpdateEncapsulated" -> {
                     if (txObject.enclosedValue != null && txObject.innerIdentifier != null) {
 
                         // check if the inner value id exists

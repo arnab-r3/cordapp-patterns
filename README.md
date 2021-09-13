@@ -25,14 +25,14 @@ From Party A execute the following:
 ### Create Inner
 
 ```shell
-flow start EncapsulationDemoFlows$InitiatorFlow commandString: CreateEnclosed, txObject: { "enclosedValue":"test-inner"}, counterParty: PartyB
+flow start EncapsulationDemoFlows$InitiatorFlow commandString: CreateEncapsulated, txObject: { "enclosedValue":"test-inner"}, counterParty: PartyB
 ```
 
 
 ### Update Inner
 
 ```shell
-flow start EncapsulationDemoFlows$InitiatorFlow commandString: UpdateEnclosed, txObject: { "enclosedValue":"new-test-inner", "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1"}, counterParty: PartyB
+flow start EncapsulationDemoFlows$InitiatorFlow commandString: UpdateEncapsulated, txObject: { "enclosedValue":"new-test-inner", "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1"}, counterParty: PartyB
 ```
 
 
@@ -51,7 +51,7 @@ flow start EncapsulationDemoFlows$InitiatorFlow commandString: CreateEncapsulati
 ### Update Inner Again
 
 ```shell
-flow start EncapsulationDemoFlows$InitiatorFlow commandString: UpdateEnclosed, txObject: { "enclosedValue":"brand-new-inner", "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1"}, counterParty: PartyB
+flow start EncapsulationDemoFlows$InitiatorFlow commandString: UpdateEncapsulated, txObject: { "enclosedValue":"brand-new-inner", "innerIdentifier":"f7336b00-27d0-4ecf-8eb4-e30bb794c3a1"}, counterParty: PartyB
 ```
 
 ### Update the last outer keeping the inner same
