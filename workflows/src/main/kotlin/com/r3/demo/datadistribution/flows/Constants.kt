@@ -7,6 +7,7 @@ import net.corda.core.serialization.CordaSerializable
 const val DEFAULT_NOTARY = "O=Notary,L=London,C=GB"
 const val BNO_PARTY = "O=PartyA,L=London,C=GB"
 
+const val MAX_THREAD_SIZE = 20
 
 @CordaSerializable
 enum class DataAdminPermission : BNPermission {

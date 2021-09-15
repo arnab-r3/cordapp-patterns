@@ -6,11 +6,14 @@ import net.corda.core.node.services.CordaService
 import net.corda.core.serialization.SingletonSerializeAsToken
 import net.corda.core.transactions.SignedTransaction
 import java.util.concurrent.Callable
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 @CordaService
 class DistributionService(private val appServiceHub: AppServiceHub) : SingletonSerializeAsToken() {
 
+
+    private lateinit var executorService : ExecutorService
 
     private class CallDistributeFlow(val serviceHub: AppServiceHub, val receiver: Party, val signedTransaction: SignedTransaction) : Callable<Unit> {
         override fun call(): Unit =
@@ -18,10 +21,11 @@ class DistributionService(private val appServiceHub: AppServiceHub) : SingletonS
     }
 
     fun distributeTransactionParallel (signedTransaction: SignedTransaction, parties: Set<Party>) {
-        val executorService = Executors.newFixedThreadPool(20)
+        if (!this::executorService.isInitialized) {
+            executorService = Executors.newFixedThreadPool(MAX_THREAD_SIZE)
+        }
         for (party in parties){
             executorService.submit(CallDistributeFlow(appServiceHub, party, signedTransaction))
         }
     }
-
 }
