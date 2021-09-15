@@ -52,6 +52,8 @@ class StateEncapsulationContract : Contract {
                                     == outputEncapsulatingStates.single().linearId)
                     "UpdateEncapsulating Command should not modify the list of participants" using
                             (inputEncapsulatingStates.single().participants.containsAll(outputEncapsulatingStates.single().participants))
+                    "UpdateEncapsulating Command should collect the signatures of all participants for modification" using
+                            (command.signers.containsAll(inputEncapsulatingStates.single().participants.map { it.owningKey }))
                 }
 
             is Commands.UpdateEncapsulated ->
@@ -65,6 +67,8 @@ class StateEncapsulationContract : Contract {
                                     == outputEncapsulatedStates.single().linearId)
                     "UpdateEncapsulated Command should not modify the list of participants" using
                             (inputEncapsulatedStates.single().participants.containsAll(outputEncapsulatedStates.single().participants))
+                    "UpdateEncapsulated Command should collect the signatures of all participants for modification" using
+                            (command.signers.containsAll(inputEncapsulatedStates.single().participants.map { it.owningKey }))
                 }
         }
     }

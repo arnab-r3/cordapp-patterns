@@ -104,6 +104,8 @@ dependencies {
     cordapp "$accounts_release_group:accounts-contracts:$accounts_release_version"
     cordapp "$confidential_id_release_group:ci-workflows:$confidential_id_release_version"
     cordapp "$accounts_release_group:accounts-workflows:$accounts_release_version"
+    cordapp("net.corda.bn:business-networks-contracts:$corda_bn_extension_version")
+    cordapp("net.corda.bn:business-networks-workflows:$corda_bn_extension_version")
 }
 
 //Task to deploy the nodes in order to bootstrap a network
@@ -140,23 +142,34 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
     }
     node {
         name "O=PartyA,L=London,C=GB"
-        p2pPort 10005
+        p2pPort 11005
         rpcSettings {
-            address("localhost:10006")
-            adminAddress("localhost:10046")
+            address("localhost:11006")
+            adminAddress("localhost:11046")
         }
         rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
         extraConfig = ['h2Settings.address' : 'localhost:20041']
     }
     node {
-        name "O=PartyB,L=New York,C=US"
-        p2pPort 10008
+        name "O=PartyB,L=London,C=GB"
+        p2pPort 12005
         rpcSettings {
-            address("localhost:10009")
-            adminAddress("localhost:10049")
+            address("localhost:12006")
+            adminAddress("localhost:12046")
         }
         rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
         extraConfig = ['h2Settings.address' : 'localhost:20042']
     }
+    node {
+        name "O=PartyC,L=London,C=GB"
+        p2pPort 13005
+        rpcSettings {
+            address("localhost:13006")
+            adminAddress("localhost:13046")
+        }
+        rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
+        extraConfig = ['h2Settings.address' : 'localhost:20043']
+    }
+
 
 }
