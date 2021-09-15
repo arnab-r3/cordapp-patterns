@@ -143,7 +143,7 @@ object MembershipBroadcastHelperFlows {
     class DistributeTransactionsToNetworkFlow(
         private val signedTransaction: SignedTransaction,
         private val networkId: String,
-        private val filterCriteria: (Party) -> Boolean = {true}
+        private val groupFilterCriteria: (GroupState) -> Boolean = {true}
     ) : MembershipManagementFlow<Unit>() {
 
 
@@ -153,7 +153,11 @@ object MembershipBroadcastHelperFlows {
             // basic authorization whether the participant who is distributing is a part of the network
             authorise(networkId = networkId, BNService = bnService) { true }
             val allParties =
-                bnService.getAllBusinessNetworkGroups(networkId).flatMap { it.state.data.participants }.filter(filterCriteria).toSet()
+                bnService
+                    .getAllBusinessNetworkGroups(networkId)
+                    .map { it.state.data }.filter(groupFilterCriteria)
+                    .flatMap { it.participants }
+                    .toSet()
             val distributionService = serviceHub.cordaService(DistributionService::class.java)
             distributionService.distributeTransactionParallel(signedTransaction, allParties)
         }
@@ -165,7 +169,7 @@ object MembershipBroadcastHelperFlows {
     class DistributeTransactionsToGroupFlow(
         private val signedTransaction: SignedTransaction,
         private val groupId: String,
-        private val filterCriteria: (Party) -> Boolean = {true}
+        private val partyFilterCriteria: (Party) -> Boolean = {true}
     ) : MembershipManagementFlow<Unit>() {
 
 
@@ -177,7 +181,7 @@ object MembershipBroadcastHelperFlows {
                 // check if the invoker is a part of the network
                 authorise(state.data.networkId, bnService){true}
                 require (ourIdentity in state.data.participants) {"Our identity is not a part of the group"}
-                val recipientParties = state.data.participants.filter(filterCriteria).toSet()
+                val recipientParties = state.data.participants.filter(partyFilterCriteria).toSet()
                 val distributionService = serviceHub.cordaService(DistributionService::class.java)
                 distributionService.distributeTransactionParallel(signedTransaction, recipientParties)
             }
