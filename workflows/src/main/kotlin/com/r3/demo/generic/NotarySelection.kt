@@ -1,4 +1,4 @@
-package com.r3.utils
+package com.r3.demo.generic
 
 import net.corda.core.contracts.ContractState
 import net.corda.core.identity.Party
