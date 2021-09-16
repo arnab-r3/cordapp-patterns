@@ -5,12 +5,11 @@ import net.corda.bn.flows.*
 import net.corda.bn.states.GroupState
 import net.corda.bn.states.MembershipState
 import net.corda.core.contracts.UniqueIdentifier
-import net.corda.core.flows.*
+import net.corda.core.flows.FlowLogic
+import net.corda.core.flows.StartableByRPC
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
-import net.corda.core.node.StatesToRecord
 import net.corda.core.transactions.SignedTransaction
-
 
 object MembershipFlows {
 
@@ -105,91 +104,3 @@ object MembershipFlows {
         }
     }
 }
-
-
-object DataBroadCastFlows {
-
-    // reference: https://lankydan.dev/broadcasting-a-transaction-to-external-organisations
-    @StartableByRPC
-    @InitiatingFlow
-    class InitiatorFlow(
-        private val signedTransaction: SignedTransaction,
-        private val counterParty: Party
-    ) : FlowLogic<Unit>() {
-
-        @Suspendable
-        override fun call() {
-            val flowSession = initiateFlow(counterParty)
-            subFlow(SendTransactionFlow(flowSession, signedTransaction))
-        }
-    }
-
-
-    @InitiatedBy(InitiatorFlow::class)
-    class ResponderFlow(private val session: FlowSession) : FlowLogic<Unit>() {
-
-        @Suspendable
-        override fun call() {
-            subFlow(ReceiveTransactionFlow(session, statesToRecord = StatesToRecord.ALL_VISIBLE))
-        }
-    }
-
-
-}
-
-object MembershipBroadcastHelperFlows {
-
-    @InitiatingFlow
-    class DistributeTransactionsToNetworkFlow(
-        private val signedTransaction: SignedTransaction,
-        private val networkId: String,
-        private val groupFilterCriteria: (GroupState) -> Boolean = {true}
-    ) : MembershipManagementFlow<Unit>() {
-
-
-        @Suspendable
-        override fun call(): Unit {
-            val bnService = serviceHub.cordaService(BNService::class.java)
-            // basic authorization whether the participant who is distributing is a part of the network
-            authorise(networkId = networkId, BNService = bnService) { true }
-            val allParties =
-                bnService
-                    .getAllBusinessNetworkGroups(networkId)
-                    .map { it.state.data }.filter(groupFilterCriteria)
-                    .flatMap { it.participants }
-                    .toSet()
-            val distributionService = serviceHub.cordaService(DistributionService::class.java)
-            distributionService.distributeTransactionParallel(signedTransaction, allParties)
-        }
-
-    }
-
-
-    @InitiatingFlow
-    class DistributeTransactionsToGroupFlow(
-        private val signedTransaction: SignedTransaction,
-        private val groupId: String,
-        private val partyFilterCriteria: (Party) -> Boolean = {true}
-    ) : MembershipManagementFlow<Unit>() {
-
-
-        @Suspendable
-        override fun call(): Unit {
-            val bnService = serviceHub.cordaService(BNService::class.java)
-            // basic authorization whether the participant who is distributing is a part of the network
-            bnService.getBusinessNetworkGroup(groupId = UniqueIdentifier.fromString(groupId))?.apply {
-                // check if the invoker is a part of the network
-                authorise(state.data.networkId, bnService){true}
-                require (ourIdentity in state.data.participants) {"Our identity is not a part of the group"}
-                val recipientParties = state.data.participants.filter(partyFilterCriteria).toSet()
-                val distributionService = serviceHub.cordaService(DistributionService::class.java)
-                distributionService.distributeTransactionParallel(signedTransaction, recipientParties)
-            }
-        }
-    }
-
-
-
-
-}
-
