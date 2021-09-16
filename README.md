@@ -81,3 +81,42 @@ flow start EncapsulationDemoFlows$InitiatorFlow commandString: UpdateEncapsulati
 SELECT * FROM ENCAPSULATED inr JOIN ENCAPSULATING outr ON (inr.ID = outr.ENCAPSULATED_ID) WHERE inr.TRANSACTION_ID IN (SELECT TRANSACTION_ID FROM VAULT_STATES vs WHERE vs.STATE_STATUS=0) AND outr.TRANSACTION_ID IN (SELECT TRANSACTION_ID FROM VAULT_STATES vs2 WHERE vs2.STATE_STATUS=0)
 
 ```
+
+## 2. Top-Down Data distribution in a Business Network
+
+```shell
+flow start MembershipFlows$CreateMyNetworkFlow defaultGroupName: myGroup001
+```
+
+```
+Created membership request for Network 5fa69896-7188-4815-860b-d8213f7ff2e6 with membershipId : d34aa589-dc50-43e2-8f60-0076c0365679. Please share this with the BNO of the network
+```
+
+Self assign Data admin role
+
+```shell
+flow start AssignDataAdminRoleFlow membershipId: <Membership ID of BNO>
+```
+
+#### OPTION A - Onboarding participants from BNO
+
+```shell
+flow start OnboardMyNetworkParticipant networkId: <Network ID>, onboardedParty: PartyB
+
+flow start OnboardMyNetworkParticipant networkId: <Network ID>, onboardedParty: PartyC
+```
+
+#### OPTION B - Request Membership to BNO
+
+```shell
+flow start RequestMyNetworkMembership networkId: <Network ID>
+```
+
+Approve the request from BNO
+
+```shell
+flow start ApproveMyNetworkMembership membershipId: <Membership ID of the requested participant>
+
+```
+
+
