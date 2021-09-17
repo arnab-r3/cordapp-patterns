@@ -1,4 +1,4 @@
-package com.template.contracts
+package com.r3.demo.common
 
 import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
 import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract.Commands.*

@@ -2,14 +2,16 @@ package com.r3.demo.stateencapsulation.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.r3.demo.generic.getDefaultNotary
 import com.r3.demo.stateencapsulation.contracts.EncapsulatedState
 import com.r3.demo.stateencapsulation.contracts.EncapsulatingState
 import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
 import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
 import net.corda.core.contracts.ContractState
-import net.corda.core.flows.*
+import net.corda.core.flows.FlowLogic
+import net.corda.core.flows.InitiatingFlow
+import net.corda.core.flows.StartableByRPC
 import net.corda.core.identity.Party
-import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.serialization.CordaSerializable
@@ -20,7 +22,7 @@ import java.util.*
 
 fun fail(message: String): Nothing = throw IllegalArgumentException(message)
 
-fun getDefaultNotary(serviceHub: ServiceHub) = serviceHub.networkMapCache.notaryIdentities.first()
+
 
 object EncapsulationDemoFlows {
 
@@ -207,13 +209,13 @@ object EncapsulationDemoFlows {
 
     }
 
-    @InitiatedBy(InitiatorFlow::class)
-    class ResponderFlow(val counterpartySession: FlowSession) : FlowLogic<Unit>() {
-
-        @Suspendable
-        override fun call() {
-            // we have nothing to do here...
-        }
-
-    }
+//    @InitiatedBy(InitiatorFlow::class)
+//    class ResponderFlow(val counterpartySession: FlowSession) : FlowLogic<Unit>() {
+//
+//        @Suspendable
+//        override fun call() {
+//            // we have nothing to do here...
+//        }
+//
+//    }
 }

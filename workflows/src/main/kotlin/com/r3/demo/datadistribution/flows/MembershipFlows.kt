@@ -1,7 +1,7 @@
 package com.r3.demo.datadistribution.flows
 
 import co.paralleluniverse.fibers.Suspendable
-import com.template.contracts.DataAdminRole
+import com.r3.demo.common.DataAdminRole
 import net.corda.bn.flows.*
 import net.corda.bn.states.GroupState
 import net.corda.bn.states.MembershipState
