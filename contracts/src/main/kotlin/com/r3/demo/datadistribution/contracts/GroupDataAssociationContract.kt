@@ -15,7 +15,7 @@ class GroupDataAssociationContract: Contract {
 
         when (command.value) {
             is Commands.CreateData -> {}
-            is Commands.AddGroupAssociation -> {
+            is Commands.UpdateGroups -> {
                 requireThat {
                     "AddGroupAssociation command should not have "
                 }
@@ -27,6 +27,6 @@ class GroupDataAssociationContract: Contract {
 
     interface Commands: CommandData {
         class CreateData : TypeOnlyCommandData(), Commands
-        class AddGroupAssociation: TypeOnlyCommandData(), Commands
+        class UpdateGroups: TypeOnlyCommandData(), Commands
     }
 }

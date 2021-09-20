@@ -40,13 +40,12 @@ object EncapsulationDemoFlows {
             object SET_UP : ProgressTracker.Step("Initialising flows.")
             object BUILDING_THE_TX : ProgressTracker.Step("Building transaction.")
             object VERIFYING_THE_TX : ProgressTracker.Step("Verifying transaction.")
-            object WE_SIGN : ProgressTracker.Step("We are signing transaction.")
             object COLLECTING_SIGS_AND_FINALITY : ProgressTracker.Step("Collecting Signatures & Executing Finality") {
                 override fun childProgressTracker() = CollectSignaturesAndFinalizeTransactionFlow.tracker()
             }
 
             fun tracker() = ProgressTracker(SET_UP, BUILDING_THE_TX,
-                VERIFYING_THE_TX, WE_SIGN, COLLECTING_SIGS_AND_FINALITY)
+                VERIFYING_THE_TX, COLLECTING_SIGS_AND_FINALITY)
         }
 
         override val progressTracker = tracker()
@@ -82,7 +81,7 @@ object EncapsulationDemoFlows {
                             .addCommand(StateEncapsulationContract.Commands.CreateEncapsulating(),
                                 listOf(ourIdentity.owningKey, counterParty.owningKey))
 
-                        Pair(txBuilder, "Encapsulating created, ID: ${encapsulatingState.linearId.id}")
+                        txBuilder to "Encapsulating created, ID: ${encapsulatingState.linearId.id}"
 
                     } else fail("Create Encapsulating state must accompany the inner identifier and the outer enclosing value")
 
@@ -115,8 +114,8 @@ object EncapsulationDemoFlows {
                             .addCommand(StateEncapsulationContract.Commands.UpdateEncapsulating(),
                                 listOf(ourIdentity.owningKey, counterParty.owningKey))
 
-                        Pair(txBuilder,
-                                "Encapsulating updated with inner identifier: ${txObject.innerIdentifier} and outer identifier: ${txObject.outerIdentifier}")
+                        txBuilder to
+                                "Encapsulating updated with inner identifier: ${txObject.innerIdentifier} and outer identifier: ${txObject.outerIdentifier}"
 
                     } else fail("Update Encapsulating state must accompany the inner and outer identifiers and the outer enclosing value")
 
@@ -132,7 +131,7 @@ object EncapsulationDemoFlows {
                             .addCommand(StateEncapsulationContract.Commands.CreateEncapsulated(),
                                 listOf(ourIdentity.owningKey, counterParty.owningKey))
 
-                        Pair(txBuilder, "Encapsulated created with identifier ${encapsulatedState.linearId.id}")
+                        txBuilder to "Encapsulated created with identifier ${encapsulatedState.linearId.id}"
 
                     } else fail("Create of Encapsulated state should include the enclosing value")
 
@@ -162,7 +161,7 @@ object EncapsulationDemoFlows {
                             .addCommand(StateEncapsulationContract.Commands.UpdateEncapsulated(),
                                 listOf(ourIdentity.owningKey, counterParty.owningKey))
 
-                        Pair(txBuilder, "Encapsulated Updated with id: ${txObject.innerIdentifier}".trimIndent())
+                        txBuilder to "Encapsulated Updated with id: ${txObject.innerIdentifier}".trimIndent()
 
                     } else fail("Update of Encapsulated state should include the enclosing value and the state identifier to be updated")
                 }
@@ -190,18 +189,14 @@ object EncapsulationDemoFlows {
 
             txBuilder.verify(serviceHub)
 
-            progressTracker.currentStep = WE_SIGN
-
-            val selfSignedTransaction = serviceHub.signInitialTransaction(txBuilder)
-
             progressTracker.currentStep = COLLECTING_SIGS_AND_FINALITY
 
             val subFlow: SignedTransaction = subFlow(
                 CollectSignaturesAndFinalizeTransactionFlow(
-                    selfSignedTransaction,
+                    txBuilder,
                     null,
-                    setOf(counterParty),
-                    setOf(counterParty, ourIdentity)))
+                    listOf(counterParty),
+                    listOf(counterParty)))
 
             return "$txOutputString, Tx ID: ${subFlow.id}"
 

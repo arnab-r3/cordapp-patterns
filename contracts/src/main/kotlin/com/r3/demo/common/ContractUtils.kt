@@ -16,6 +16,9 @@ enum class DataAdminPermission : BNPermission {
 @CordaSerializable
 class DataAdminRole : BNRole("DataAdmin", DataAdminPermission.values().toSet())
 
+@CordaSerializable
+class GroupMemberRole: BNRole("NetworkMemberRole", setOf(DataAdminPermission.CAN_DISTRIBUTE_DATA))
+
 
 fun MembershipState.canManageData() = DataAdminPermission.CAN_MANAGE_DATA in permissions()
 fun MembershipState.canDistributeData() = DataAdminPermission.CAN_DISTRIBUTE_DATA in permissions()

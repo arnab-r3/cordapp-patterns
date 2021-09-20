@@ -29,7 +29,7 @@ object MembershipBroadcastFlows {
     class DistributeTransactionToNetworkFlow(
         private val signedTransaction: SignedTransaction,
         private val networkId: String,
-        private val groupFilterCriteria: (GroupState) -> Boolean = {true}
+        private val groupFilterCriteria: (GroupState) -> Boolean = { true }
     ) : MembershipManagementFlow<Unit>() {
 
         @Suspendable
@@ -58,7 +58,7 @@ object MembershipBroadcastFlows {
     class DistributeTransactionToGroupFlow(
         private val signedTransaction: SignedTransaction,
         private val groupId: String,
-        private val partyFilterCriteria: (Party) -> Boolean = {true}
+        private val partyFilterCriteria: (Party) -> Boolean = { true }
     ) : MembershipManagementFlow<Unit>() {
 
         val log: Logger = LoggerFactory.getLogger("com.r3.demo.datadistribution.flows")
@@ -72,16 +72,15 @@ object MembershipBroadcastFlows {
 
                 log.info("Authorizing ${ourIdentity.name} to distribute transaction ${signedTransaction.id} to group : $groupId")
 
-                authorise(state.data.networkId, bnService){true}
-                require (ourIdentity in state.data.participants) {"Our identity is not a part of the group"}
+                authorise(state.data.networkId, bnService) { it.canDistributeData() }
+
+                require(ourIdentity in state.data.participants) { "Our identity is not a part of the group" }
                 val recipientParties = state.data.participants.filter(partyFilterCriteria).toSet()
                 val distributionService = serviceHub.cordaService(DistributionService::class.java)
                 distributionService.distributeTransactionParallel(signedTransaction, recipientParties)
             }
         }
     }
-
-
 
 
 }
