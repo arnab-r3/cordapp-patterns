@@ -33,7 +33,7 @@ object GroupDataAssociationFlows {
     @InitiatingFlow
     class CreateDataFlow(
         private val data: String,
-        private val groupIds: List<String>
+        private val groupIds: List<String>?
     ) : MembershipManagementFlow<String>() {
 
         @Suspendable
@@ -41,7 +41,7 @@ object GroupDataAssociationFlows {
 
             val bnService = serviceHub.cordaService(BNService::class.java)
 
-            val groupParticipants = groupIds.flatMap { groupId ->
+            val groupParticipants = groupIds?.flatMap { groupId ->
 
                 val groupParticipants = mutableListOf<Party>()
                 bnService.getBusinessNetworkGroup(UniqueIdentifier.fromString(groupId))?.apply {
@@ -52,11 +52,13 @@ object GroupDataAssociationFlows {
                     groupParticipants.addAll(state.data.participants)
 
                 } ?: argFail("Group $groupId does not exist")
-                groupParticipants as List<Party>
-            }
+
+                (groupParticipants + ourIdentity) as List<Party>
+
+            }?: listOf(ourIdentity)
 
             val groupLinearPointers =
-                groupIds.map { linearPointer(it, GroupState::class.java) }.toSet()
+                groupIds?.map { linearPointer(it, GroupState::class.java) }?.toSet()
 
             val outputState = GroupDataAssociationState(
                 value = data,
@@ -80,14 +82,14 @@ object GroupDataAssociationFlows {
             ))
 
             // distribute the transaction to all group members
-            groupIds.forEach { groupId ->
+            groupIds?.forEach { groupId ->
                 subFlow(DistributeTransactionToGroupFlow(
                     signedTransaction = finalizedTx,
                     groupId = groupId)
                 )
             }
 
-            return "Data with id: ${outputState.linearId} created and distributed to groups: ${groupIds.joinToString()}, TxId: ${finalizedTx.id}"
+            return "Data with id: ${outputState.linearId} created and distributed to groups: ${groupIds?.joinToString()}, TxId: ${finalizedTx.id}"
         }
     }
 
