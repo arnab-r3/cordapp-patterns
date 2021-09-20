@@ -53,6 +53,10 @@ object MembershipBroadcastFlows {
     }
 
 
+    /**
+     * Distribute a transaction to all parties in a group
+     * Optionally accept a lambda to filter the parties who should get the transaction
+     */
     @Suppress("unused")
     @InitiatingFlow
     class DistributeTransactionToGroupFlow(

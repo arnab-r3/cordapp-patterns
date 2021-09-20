@@ -9,6 +9,9 @@ import java.util.concurrent.Callable
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+/**
+ * Service to distribute transactions in parallel
+ */
 @CordaService
 class DistributionService(private val appServiceHub: AppServiceHub) : SingletonSerializeAsToken() {
 

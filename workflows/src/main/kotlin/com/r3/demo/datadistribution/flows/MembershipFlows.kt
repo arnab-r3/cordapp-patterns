@@ -2,6 +2,7 @@ package com.r3.demo.datadistribution.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.demo.common.DataAdminRole
+import com.r3.demo.common.GroupMemberRole
 import net.corda.bn.flows.*
 import net.corda.bn.states.GroupState
 import net.corda.bn.states.MembershipState
@@ -32,6 +33,9 @@ object MembershipFlows {
         }
     }
 
+    /**
+     * Assign data admin role to participant
+     */
     @StartableByRPC
     class AssignDataAdminRoleFlow
         (private val membershipId: String) : FlowLogic<SignedTransaction>() {
@@ -46,6 +50,27 @@ object MembershipFlows {
     }
 
 
+    /**
+     * Assign group member role to participant
+     */
+    @StartableByRPC
+    class AssignGroupMemberRoleFlow
+        (private val membershipId: String) : FlowLogic<SignedTransaction>() {
+
+        @Suspendable
+        override fun call(): SignedTransaction {
+            return subFlow(ModifyRolesFlow(
+                membershipId = UniqueIdentifier.fromString(membershipId),
+                roles = setOf(GroupMemberRole()),
+                notary = serviceHub.networkMapCache.getNotary(CordaX500Name.parse(DEFAULT_NOTARY))))
+        }
+    }
+
+
+
+    /**
+     * Write this lame flow coz the roles are not visible for a [MembershipState] when running vaultQuery on the shell
+     */
     @StartableByRPC
     class QueryRolesForMembershipFlow(private val membershipId: String) : FlowLogic<String>() {
 
@@ -57,6 +82,9 @@ object MembershipFlows {
                 } ?: "Membership with $membershipId not found"
     }
 
+    /**
+     * Onboard network participant by the BNO (has to be called from the BNO node)
+     */
     @StartableByRPC
     class OnboardMyNetworkParticipant(
         private val networkId: String,
@@ -74,6 +102,10 @@ object MembershipFlows {
         )
     }
 
+    /**
+     * Request membership on a network given that the network id is known to the party
+     * The BNO party is hardcoded. Can be parameterised as well.
+     */
     @StartableByRPC
     class RequestMyNetworkMembership(
         private val networkId: String
@@ -94,6 +126,10 @@ object MembershipFlows {
 
     }
 
+
+    /**
+     * Approve Network onboarding of participant
+     */
     @StartableByRPC
     class ApproveMyNetworkMembership(
         private val membershipId: String
@@ -106,6 +142,9 @@ object MembershipFlows {
     }
 
 
+    /**
+     * Create a new group. Can be done by BNO.
+     */
     @StartableByRPC
     class CreateMyGroupFlow(
         private val networkId: String,

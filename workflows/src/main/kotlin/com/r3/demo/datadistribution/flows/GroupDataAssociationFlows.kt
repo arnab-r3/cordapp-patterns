@@ -55,7 +55,7 @@ object GroupDataAssociationFlows {
 
                 (groupParticipants + ourIdentity) as List<Party>
 
-            }?: listOf(ourIdentity)
+            } ?: listOf(ourIdentity)
 
             val groupLinearPointers =
                 groupIds?.map { linearPointer(it, GroupState::class.java) }?.toSet()
@@ -85,7 +85,7 @@ object GroupDataAssociationFlows {
             groupIds?.forEach { groupId ->
                 subFlow(DistributeTransactionToGroupFlow(
                     signedTransaction = finalizedTx,
-                    groupId = groupId)
+                    groupId = groupId) { it != ourIdentity }
                 )
             }
 
@@ -166,7 +166,7 @@ object GroupDataAssociationFlows {
             groupIds.forEach { groupId ->
                 subFlow(DistributeTransactionToGroupFlow(
                     signedTransaction = finalizedTx,
-                    groupId = groupId)
+                    groupId = groupId) { it != ourIdentity }
                 )
             }
 
