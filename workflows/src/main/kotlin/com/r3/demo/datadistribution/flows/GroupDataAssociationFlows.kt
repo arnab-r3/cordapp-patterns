@@ -94,6 +94,7 @@ object GroupDataAssociationFlows {
     /**
      * Flow to add groups to
      */
+    @StartableByRPC
     class UpdateDataParticipantsFlow(
         private val dataIdentifier: String,
         private val newGroupIds: List<String>
