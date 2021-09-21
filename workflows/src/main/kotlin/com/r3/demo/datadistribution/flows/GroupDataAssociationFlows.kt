@@ -249,9 +249,6 @@ object GroupDataAssociationFlows {
 }
 
 
-// TODO write responder flow to check if the sent tx can be accepted by checking if I am a part of any of the groups mentioned
-// todo write update logic to update the list of groups and thereby participants
 // todo write logic (contract) to check if the correct data is used (check in contract)
 // todo write integration tests
-// check data distribution
-// check usage permissions
+// TODO check usage permissions
