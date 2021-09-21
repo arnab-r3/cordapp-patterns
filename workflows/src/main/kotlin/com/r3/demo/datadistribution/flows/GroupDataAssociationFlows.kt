@@ -30,21 +30,17 @@ object GroupDataAssociationFlows {
         fun getGroupDataParticipants(groupIds: Set<String>?): Set<Party> {
 
             val bnService = serviceHub.cordaService(BNService::class.java)
-
             return groupIds?.flatMap { groupId ->
 
                 val groupParticipants = mutableSetOf<Party>()
                 bnService.getBusinessNetworkGroup(UniqueIdentifier.fromString(groupId))?.apply {
-
                     // check if we are a part of the network and have data admin role
                     authorise(state.data.networkId, bnService) { it.canManageData() && it.canDistributeData() }
-
                     val dataDistributionParties = state.data.participants.filter { party ->
                         val membershipState = bnService.getMembership(state.data.networkId, party)?.state?.data
                         membershipState?.canDistributeData() ?: false
                     }
                     groupParticipants.addAll(dataDistributionParties)
-
                 } ?: argFail("Group $groupId does not exist")
 
                 (groupParticipants + ourIdentity).toSet()
