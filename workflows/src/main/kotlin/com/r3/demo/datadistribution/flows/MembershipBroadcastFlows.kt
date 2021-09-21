@@ -9,6 +9,7 @@ import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
+import net.corda.core.utilities.ProgressTracker
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -32,9 +33,20 @@ object MembershipBroadcastFlows {
         private val groupFilterCriteria: (GroupState) -> Boolean = { true }
     ) : MembershipManagementFlow<Unit>() {
 
+        companion object {
+            object AUTHORIZING_DISTRIBUTION_PERMISSIONS : ProgressTracker.Step("Fetching Group Details in Network")
+            object DISTRIBUTING_PARALLELY : ProgressTracker.Step("Distributing data to all participants in in parallel")
+
+            fun tracker() = ProgressTracker(AUTHORIZING_DISTRIBUTION_PERMISSIONS, DISTRIBUTING_PARALLELY)
+        }
+
+        override val progressTracker = tracker()
+
         @Suspendable
         override fun call() {
             val bnService = serviceHub.cordaService(BNService::class.java)
+
+            progressTracker.currentStep = AUTHORIZING_DISTRIBUTION_PERMISSIONS
             // basic authorization whether the participant who is distributing is a part of the network
             authorise(networkId = networkId, BNService = bnService) { it.canDistributeData() }
 
@@ -45,6 +57,7 @@ object MembershipBroadcastFlows {
                     .flatMap { it.participants }
                     .toSet()
 
+            progressTracker.currentStep = DISTRIBUTING_PARALLELY
             serviceHub.cordaService(DistributionService::class.java).distributeTransactionParallel(
                 signedTransaction, allParties
             )
@@ -65,6 +78,15 @@ object MembershipBroadcastFlows {
         private val partyFilterCriteria: (Party) -> Boolean = { true }
     ) : MembershipManagementFlow<Unit>() {
 
+        companion object {
+            object AUTHORIZING_DISTRIBUTION_PERMISSIONS : ProgressTracker.Step("Fetching Group Details")
+            object DISTRIBUTING_PARALLELY : ProgressTracker.Step("Distributing data to other participants in parallel")
+
+            fun tracker() = ProgressTracker(AUTHORIZING_DISTRIBUTION_PERMISSIONS, DISTRIBUTING_PARALLELY)
+        }
+
+        override val progressTracker = tracker()
+
         val log: Logger = LoggerFactory.getLogger("com.r3.demo.datadistribution.flows")
 
         @Suspendable
@@ -76,15 +98,20 @@ object MembershipBroadcastFlows {
 
                 log.info("Authorizing ${ourIdentity.name} to distribute transaction ${signedTransaction.id} to group : $groupId")
 
+                progressTracker.currentStep = AUTHORIZING_DISTRIBUTION_PERMISSIONS
                 authorise(state.data.networkId, bnService) { it.canDistributeData() }
 
                 require(ourIdentity in state.data.participants) { "Our identity is not a part of the group" }
                 val recipientParties = state.data.participants.filter(partyFilterCriteria).toSet()
-                val distributionService = serviceHub.cordaService(DistributionService::class.java)
-                distributionService.distributeTransactionParallel(signedTransaction, recipientParties)
+
+                for (party in recipientParties) {
+                    subFlow(DataBroadCastFlows.InitiatorFlow(signedTransaction, party))
+                }
+//                progressTracker.currentStep = DISTRIBUTING_PARALLELY
+
+//                serviceHub.cordaService(DistributionService::class.java)
+//                    .distributeTransactionParallel(signedTransaction, recipientParties)
             }
         }
     }
-
-
 }

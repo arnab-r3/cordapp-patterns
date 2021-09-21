@@ -2,7 +2,7 @@ package com.r3.demo.datadistribution.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.demo.common.DataAdminRole
-import com.r3.demo.common.GroupMemberRole
+import com.r3.demo.common.NetworkMemberRole
 import net.corda.bn.flows.*
 import net.corda.bn.states.GroupState
 import net.corda.bn.states.MembershipState
@@ -54,14 +54,14 @@ object MembershipFlows {
      * Assign group member role to participant
      */
     @StartableByRPC
-    class AssignGroupMemberRoleFlow
+    class AssignNetworkMemberRoleFlow
         (private val membershipId: String) : FlowLogic<SignedTransaction>() {
 
         @Suspendable
         override fun call(): SignedTransaction {
             return subFlow(ModifyRolesFlow(
                 membershipId = UniqueIdentifier.fromString(membershipId),
-                roles = setOf(GroupMemberRole()),
+                roles = setOf(NetworkMemberRole()),
                 notary = serviceHub.networkMapCache.getNotary(CordaX500Name.parse(DEFAULT_NOTARY))))
         }
     }
@@ -89,17 +89,22 @@ object MembershipFlows {
     class OnboardMyNetworkParticipant(
         private val networkId: String,
         private val onboardedParty: Party
-    ) : FlowLogic<SignedTransaction>() {
+    ) : FlowLogic<String>() {
 
         @Suspendable
-        override fun call() = subFlow(
-            OnboardMembershipFlow(
-                networkId = networkId,
-                onboardedParty = onboardedParty,
-                businessIdentity = null,
-                notary = serviceHub.networkMapCache.getNotary(CordaX500Name.parse(DEFAULT_NOTARY))
+        override fun call() : String {
+            val signedTx = subFlow(
+                OnboardMembershipFlow(
+                    networkId = networkId,
+                    onboardedParty = onboardedParty,
+                    businessIdentity = null,
+                    notary = serviceHub.networkMapCache.getNotary(CordaX500Name.parse(DEFAULT_NOTARY))
+                )
             )
-        )
+            val membershipId = signedTx.coreTransaction.outputsOfType<MembershipState>().single().linearId
+            return "Onboarded $onboardedParty on network $networkId with membershipId: $membershipId"
+
+        }
     }
 
     /**

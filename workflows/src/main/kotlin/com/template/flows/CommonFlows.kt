@@ -15,8 +15,8 @@ import java.security.PublicKey
 class CollectSignaturesAndFinalizeTransactionFlow(
     private val builder: TransactionBuilder,
     private val myOptionalKeys: Iterable<PublicKey>?,
-    private val signers: List<Party>,
-    private val participants: List<Party>
+    private val signers: Set<Party>,
+    private val participants: Set<Party>
 ) : FlowLogic<SignedTransaction>() {
 
     companion object {
@@ -29,7 +29,7 @@ class CollectSignaturesAndFinalizeTransactionFlow(
             override fun childProgressTracker() = FinalityFlow.tracker()
         }
 
-        fun tracker() = ProgressTracker(COLLECTING_SIGNATURES, FINALISING)
+        fun tracker() = ProgressTracker(SIGNING_TRANSACTION, COLLECTING_SIGNATURES, FINALISING)
     }
 
     override val progressTracker = tracker()
@@ -54,7 +54,7 @@ class CollectSignaturesAndFinalizeTransactionFlow(
         val flowSessions = observerParties.map { counterParty -> initiateFlow(counterParty) }
 
         // communicate to others if they are required to sign the transaction
-        flowSessions.forEach { session -> session.counterparty in signerParties }
+        flowSessions.forEach { session -> session.send(session.counterparty in signerParties) }
 
         // note the mechanism needs to be revisited, if there are a lot of signers to be included,
         // opening a large number of sessions can be detrimental to the performance and the memory usage of the app

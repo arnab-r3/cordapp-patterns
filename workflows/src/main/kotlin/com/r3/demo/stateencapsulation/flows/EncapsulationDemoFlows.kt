@@ -195,8 +195,10 @@ object EncapsulationDemoFlows {
                 CollectSignaturesAndFinalizeTransactionFlow(
                     txBuilder,
                     null,
-                    listOf(counterParty),
-                    listOf(counterParty)))
+                    setOf(counterParty),
+                    setOf(counterParty)
+                )
+            )
 
             return "$txOutputString, Tx ID: ${subFlow.id}"
 
