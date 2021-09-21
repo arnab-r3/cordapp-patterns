@@ -1,5 +1,6 @@
 package com.r3.demo.datadistribution.flows
 
+import net.corda.core.concurrent.CordaFuture
 import net.corda.core.identity.Party
 import net.corda.core.node.AppServiceHub
 import net.corda.core.node.services.CordaService
@@ -18,9 +19,9 @@ class DistributionService(private val appServiceHub: AppServiceHub) : SingletonS
 
     private lateinit var executorService : ExecutorService
 
-    private class CallDistributeFlow(val serviceHub: AppServiceHub, val receiver: Party, val signedTransaction: SignedTransaction) : Callable<Unit> {
-        override fun call(): Unit =
-            serviceHub.startFlow(DataBroadCastFlows.InitiatorFlow(signedTransaction, receiver)).returnValue.get()
+    private class CallDistributeFlow(val serviceHub: AppServiceHub, val receiver: Party, val signedTransaction: SignedTransaction) : Callable<CordaFuture<Unit>> {
+        override fun call(): CordaFuture<Unit> =
+            serviceHub.startFlow(DataBroadCastFlows.InitiatorFlow(signedTransaction, receiver)).returnValue
     }
 
     fun distributeTransactionParallel (signedTransaction: SignedTransaction, parties: Set<Party>) {

@@ -103,7 +103,7 @@ Next we have to onboard other participants in the network. These participants ca
 |----|-----------|---------------------|
 |BNORole|CAN_MODIFY_GROUPS,CAN_MODIFY_BUSINESS_IDENTITY, CAN_MODIFY_ROLE, CAN_REVOKE_MEMBERSHIP, CAN_SUSPEND_MEMBERSHIP, CAN_ACTIVATE_MEMBERSHIP|PartyA|
 |DataAdminRole|CAN_DISTRIBUTE_DATA, CAN_MANAGE_DATA|PartyA|
-|NetworkMemberRole|CAN_DISTRIBUTE_DATA|PartyC|
+|No Role|-|PartyC|
 
 > Note: A member with `BNORole` (with `AdminPermission`) cannot hold `DataAdminRole` at the same time.
 
