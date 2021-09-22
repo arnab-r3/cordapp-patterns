@@ -10,7 +10,7 @@ import net.corda.core.transactions.SignedTransaction
 object DataBroadCastFlows {
 
     // reference: https://lankydan.dev/broadcasting-a-transaction-to-external-organisations
-    @StartableByRPC
+    @StartableByService
     @InitiatingFlow
     class InitiatorFlow(
         private val signedTransaction: SignedTransaction,

@@ -107,10 +107,10 @@ object MembershipBroadcastFlows {
                 for (party in recipientParties) {
                     subFlow(DataBroadCastFlows.InitiatorFlow(signedTransaction, party))
                 }
-//                progressTracker.currentStep = DISTRIBUTING_PARALLELY
+                progressTracker.currentStep = DISTRIBUTING_PARALLELY
 
-//                serviceHub.cordaService(DistributionService::class.java)
-//                    .distributeTransactionParallel(signedTransaction, recipientParties)
+                serviceHub.cordaService(DistributionService::class.java)
+                    .distributeTransactionParallel(signedTransaction, recipientParties)
             }
         }
     }
