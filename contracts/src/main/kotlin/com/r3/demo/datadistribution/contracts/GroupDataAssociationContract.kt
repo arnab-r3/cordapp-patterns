@@ -3,13 +3,13 @@ package com.r3.demo.datadistribution.contracts
 import net.corda.core.contracts.*
 import net.corda.core.transactions.LedgerTransaction
 
-class GroupDataAssociationContract: Contract {
+class GroupDataAssociationContract : Contract {
 
     companion object {
         const val ID = "com.r3.demo.datadistribution.contracts.GroupDataAssociationContract"
     }
 
-    override fun verify(tx: LedgerTransaction)  {
+    override fun verify(tx: LedgerTransaction) {
 
         val command = tx.commands.requireSingleCommand<Commands>()
         val groupDataAssociationStateInputs = tx.inputsOfType<GroupDataAssociationState>()
@@ -39,8 +39,8 @@ class GroupDataAssociationContract: Contract {
 
     }
 
-    interface Commands: CommandData {
+    interface Commands : CommandData {
         class CreateData : TypeOnlyCommandData(), Commands
-        class UpdateGroups: TypeOnlyCommandData(), Commands
+        class UpdateGroups : TypeOnlyCommandData(), Commands
     }
 }

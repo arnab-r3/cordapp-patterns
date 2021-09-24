@@ -247,8 +247,3 @@ object GroupDataAssociationFlows {
         }
     }
 }
-
-
-// todo write logic (contract) to check if the correct data is used (check in contract)
-// todo write integration tests
-// TODO check usage permissions
