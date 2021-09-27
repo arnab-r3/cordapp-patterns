@@ -104,9 +104,6 @@ object MembershipBroadcastFlows {
                 require(ourIdentity in state.data.participants) { "Our identity is not a part of the group" }
                 val recipientParties = state.data.participants.filter(partyFilterCriteria).toSet()
 
-                for (party in recipientParties) {
-                    subFlow(DataBroadCastFlows.InitiatorFlow(signedTransaction, party))
-                }
                 progressTracker.currentStep = DISTRIBUTING_PARALLELY
 
                 serviceHub.cordaService(DistributionService::class.java)
