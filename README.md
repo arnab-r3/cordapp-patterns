@@ -341,7 +341,10 @@ Now retry with a value equal to or lower than 10 (the configured value in the `G
 flow start IOUFlows$Initiator iouValue: 9, otherParty: PartyA, groupDataAssociationRef: d5bb920e-893e-40fa-b0b7-70065cd1c8d5
 ```
 
-The transaction should succeed with the following message. 
-Try the example with the following additional scenarios:
-- Using a different id for `groupDataAssociationRef` that belongs to another group of non-existent
+The transaction should succeed with the following message.
+
+```shell
+Flow completed with result: SignedTransaction(id=62684D3C408DAE6AB351BFA6046BA3F218A33453643D339002AAF627813A3864)
+```
+Try the example with the following additional scenario: Using a different id for `groupDataAssociationRef` that belongs to another group of non-existent
 
