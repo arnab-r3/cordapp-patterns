@@ -54,7 +54,7 @@ object GroupDataAssociationFlows {
      */
     @StartableByRPC
     class CreateDataFlow(
-        private val data: String,
+        private val data: String,       // this can be changed to the specific type as per the needs
         private val groupIds: Set<String>?
     ) : GroupDataManagementFlow<String>() {
 

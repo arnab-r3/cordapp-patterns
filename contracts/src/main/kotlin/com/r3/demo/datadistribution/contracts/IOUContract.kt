@@ -21,7 +21,7 @@ import net.corda.core.transactions.LedgerTransaction
 class IOUContract : Contract {
     companion object {
         @JvmStatic
-        val ID = "net.corda.samples.example.contracts.IOUContract"
+        val ID = "com.r3.demo.datadistribution.contracts.IOUContract"
     }
 
     /**
@@ -53,14 +53,20 @@ class IOUContract : Contract {
             "Borrower and lender should be a part of the referred groups in GroupDataAssociationState" using
                     (outputIoUState.borrower in groupParties && outputIoUState.lender in groupParties)
 
-            // assume that the GroupData association state contains the v
-            val iouValue = tx.inputsOfType<IOUState>().single().value
+            // assume that the GroupData association state contains the value within the limits defined in the group data association state
+
 
             "GroupDataAssociationState should contain the max value that can be lent" using
-                    (grpDataAssociationState.value != null && grpDataAssociationState.value is Int)
+                    (grpDataAssociationState.value != null)
+
+            try {
+                val maxValue = (grpDataAssociationState.value as String).toInt()
+            }catch (e: ClassCastException) {
+                throw IllegalArgumentException("")
+            }
 
             "The IoU cannot have a value more than the configured maxIouValue in GroupDataAssociationState" using
-                    (iouValue <= grpDataAssociationState.value as Int)
+                    (outputIoUState.value <= grpDataAssociationState.value.toInt())
 
         }
     }

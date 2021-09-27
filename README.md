@@ -102,7 +102,7 @@ Next we have to onboard other participants in the network. These participants ca
 |Role|Permissions|Party in this example|
 |----|-----------|---------------------|
 |BNORole|CAN_MODIFY_GROUPS,CAN_MODIFY_BUSINESS_IDENTITY, CAN_MODIFY_ROLE, CAN_REVOKE_MEMBERSHIP, CAN_SUSPEND_MEMBERSHIP, CAN_ACTIVATE_MEMBERSHIP|PartyA|
-|DataAdminRole|CAN_DISTRIBUTE_DATA, CAN_MANAGE_DATA|PartyA|
+|DataAdminRole|CAN_DISTRIBUTE_DATA, CAN_MANAGE_DATA|PartyB|
 |No Role|-|PartyC|
 
 > Note: A member with `BNORole` (with `AdminPermission`) cannot hold `DataAdminRole` at the same time.
@@ -303,3 +303,45 @@ totalStatesAvailable: -1
 stateTypes: "UNCONSUMED"
 otherResults: []
 ```
+
+## 3. Using Distributed and linked data with Group
+
+In the previous example, we have seen that the data associated with group is distributed to all group participants. Parties who do not possess the `DataAdminRole` in the group stores the `GroupDataAssociationState` as `NOT_RELEVANT` (PartyA and PartyC) while those who have `DataAdminRole` store it as `RELEVANT` (PartyB).
+
+In this example, we will create another instance of `GroupDataAssociationState` with a value of 10 (as string). This will act as a upper limit on the amount that a party can owe to another using the IoU state contract. We will invoke the IoU flow with the reference to this newly created `GroupDataAssociationState` state.
+
+From the shell of PartyB issue the following command:
+
+```shell
+flow start CreateDataFlow data: "10", groupIds: ["<Group ID created in the above example>"]
+```
+should yield
+```shell
+Flow completed with result: Data with id: d5bb920e-893e-40fa-b0b7-70065cd1c8d5 created and distributed to groups: ba1b9ee5-e2e3-4c81-9005-3f473e21692b, TxId: 4E46F127F3E16A12ABEBB065C4862B73641F875D29E220197FAC06BEF573B69C
+```
+
+We have created an association between the value 10 with the group where all three participants are a part. 
+
+Now copy this data id and navigate to the shell of PartyC and execute the following:
+
+```shell
+flow start IOUFlows$Initiator iouValue: 12, otherParty: PartyA, groupDataAssociationRef: d5bb920e-893e-40fa-b0b7-70065cd1c8d5
+```
+You should see the following error.
+
+```shell
+☠   Contract verification failed: Failed requirement: The IoU cannot have a value more than the configured maxIouValue in GroupDataAssociationState, contract: com.r3.demo.datadistribution.contracts.IOUContract, transaction: 0F4216E756EF1884E0CAD98099EEA4DD7C89DE4B77E26A81BDF6AC9D8D1E2C81
+	☠   java.lang.IllegalArgumentException: Failed requirement: The IoU cannot have a value more than the configured maxIouValue in GroupDataAssociationState
+```
+
+Now retry with a value equal to or lower than 10 (the configured value in the `GroupDataAssociationState`)
+
+
+```shell
+flow start IOUFlows$Initiator iouValue: 9, otherParty: PartyA, groupDataAssociationRef: d5bb920e-893e-40fa-b0b7-70065cd1c8d5
+```
+
+The transaction should succeed with the following message. 
+Try the example with the following additional scenarios:
+- Using a different id for `groupDataAssociationRef` that belongs to another group of non-existent
+

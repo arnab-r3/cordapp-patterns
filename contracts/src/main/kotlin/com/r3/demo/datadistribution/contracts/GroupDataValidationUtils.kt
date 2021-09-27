@@ -16,7 +16,6 @@ fun validateAndFetchGroupParticipants(
 ): Set<Party> {
     val grpDataAssociationStates = tx.referenceInputRefsOfType<GroupDataAssociationState>()
     val groupStatesReferred = tx.referenceInputRefsOfType<GroupState>()
-    val outputIoUState = tx.outputsOfType<IOUState>().single()
 
     requireThat {
         //check presence of the reference state

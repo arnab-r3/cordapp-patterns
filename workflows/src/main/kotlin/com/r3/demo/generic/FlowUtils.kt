@@ -9,8 +9,8 @@ import net.corda.core.node.ServiceHub
 
 fun getDefaultNotary(serviceHub: ServiceHub) = serviceHub.networkMapCache.notaryIdentities.first()
 
-fun argFail(message: String) : Nothing = throw IllegalArgumentException(message)
-fun flowFail(message: String) : Nothing = throw FlowException(message)
-fun authFail(message: String) : Nothing = throw MembershipNotFoundException(message)
+fun argFail(message: String): Nothing = throw IllegalArgumentException(message)
+fun flowFail(message: String): Nothing = throw FlowException(message)
+fun authFail(message: String): Nothing = throw MembershipNotFoundException(message)
 
-fun <T : LinearState> linearPointer(id: String, clazz: Class<T>) = LinearPointer(UniqueIdentifier.fromString(id),clazz)
+fun <T : LinearState> linearPointer(id: String, clazz: Class<T>) = LinearPointer(UniqueIdentifier.fromString(id), clazz)

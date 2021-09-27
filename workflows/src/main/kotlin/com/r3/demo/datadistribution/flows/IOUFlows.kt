@@ -32,9 +32,9 @@ object IOUFlows {
     @InitiatingFlow
     @StartableByRPC
     class Initiator(
-        val iouValue: Int,
-        val otherParty: Party,
-        val groupDataAssociationRef: String
+        private val iouValue: Int,
+        private val otherParty: Party,
+        private val groupDataAssociationRef: String
     ) : FlowLogic<SignedTransaction>() {
         /**
          * The progress tracker checkpoints each stage of the flow and outputs the specified messages when each
@@ -87,6 +87,8 @@ object IOUFlows {
                 otherParty,
                 linearPointer(groupDataAssociationRef, GroupDataAssociationState::class.java))
             val txCommand = Command(IOUContract.Commands.Create(), iouState.participants.map { it.owningKey })
+
+            // adding the iouState with the reference to the [GroupDataAssociationState] automatically adds the
             val txBuilder = TransactionBuilder(notary)
                 .addOutputState(iouState, IOUContract.ID)
                 .addCommand(txCommand)
