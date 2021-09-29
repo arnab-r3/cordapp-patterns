@@ -249,7 +249,7 @@ statesMetadata:
   notary: "O=Notary, L=London, C=GB"
   lockId: null
   lockUpdateTime: null
-  relevancyStatus: "RELEVANT"  # <---- PartyB is the participant, hence this state is relevant
+  relevancyStatus: "RELEVANT"  # <---- PartyB is the Data Admin, and PartyA and PartyC are observers
   constraintInfo:
     constraint:
       key: "aSq9DsNNvGhYxYyqA9wd2eduEAZ5AXWgJTbTEw3G5d2maAq8vtLE4kZHgCs5jcB1N31cx1hpsLeqG2ngSysVHqcXhbNts6SkRWDaV7xNcr6MtcbufGUchxredBb6"
