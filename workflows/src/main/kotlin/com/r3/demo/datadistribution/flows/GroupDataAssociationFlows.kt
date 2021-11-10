@@ -5,7 +5,6 @@ import com.r3.demo.common.canDistributeData
 import com.r3.demo.common.canManageData
 import com.r3.demo.datadistribution.contracts.GroupDataAssociationContract
 import com.r3.demo.datadistribution.contracts.GroupDataAssociationState
-import com.r3.demo.datadistribution.flows.MembershipBroadcastFlows.DistributeTransactionToGroupFlow
 import com.r3.demo.generic.argFail
 import com.r3.demo.generic.getDefaultNotary
 import com.r3.demo.generic.linearPointer
@@ -54,8 +53,8 @@ object GroupDataAssociationFlows {
      */
     @StartableByRPC
     class CreateDataFlow(
-        private val data: String,       // this can be changed to the specific type as per the needs
-        private val groupIds: Set<String>?
+        private val data: Any,       // this can be changed to the specific type as per the needs
+        private val groupIds: Set<String>
     ) : GroupDataManagementFlow<String>() {
 
 
@@ -73,7 +72,7 @@ object GroupDataAssociationFlows {
 
             object DISTRIBUTING_GROUP_DATA :
                 ProgressTracker.Step("Distributing Group Association data to other participants") {
-                override fun childProgressTracker(): ProgressTracker = DistributeTransactionToGroupFlow.tracker()
+                override fun childProgressTracker(): ProgressTracker = MembershipBroadcastFlows.DistributeTransactionsToGroupFlow.tracker()
             }
 
             fun tracker() = ProgressTracker(FETCHING_GROUP_DETAILS,
@@ -96,7 +95,7 @@ object GroupDataAssociationFlows {
 
             progressTracker.currentStep = BUILDING_THE_TX
             val groupLinearPointers =
-                groupIds?.map { linearPointer(it, GroupState::class.java) }?.toSet()
+                groupIds.map { linearPointer(it, GroupState::class.java) }.toSet()
 
             val outputState = GroupDataAssociationState(
                 value = data,
@@ -125,14 +124,14 @@ object GroupDataAssociationFlows {
 
             progressTracker.currentStep = DISTRIBUTING_GROUP_DATA
             // distribute the transaction to all group members except the group data participants, because they already have the transaction
-            groupIds?.forEach { groupId ->
-                subFlow(DistributeTransactionToGroupFlow(
-                    signedTransaction = finalizedTx,
+            groupIds.forEach { groupId ->
+                subFlow(MembershipBroadcastFlows.DistributeTransactionsToGroupFlow(
+                    signedTransactions= listOf(finalizedTx),
                     groupId = groupId) { it !in groupDataParticipants }
                 )
             }
 
-            return "Data with id: ${outputState.linearId} created and distributed to groups: ${groupIds?.joinToString()}, TxId: ${finalizedTx.id}"
+            return "Data with id: ${outputState.linearId} created and distributed to groups: ${groupIds.joinToString()}, TxId: ${finalizedTx.id}"
         }
     }
 
@@ -159,7 +158,7 @@ object GroupDataAssociationFlows {
 
             object DISTRIBUTING_GROUP_DATA :
                 ProgressTracker.Step("Distributing Group Association data to other participants") {
-                override fun childProgressTracker(): ProgressTracker = DistributeTransactionToGroupFlow.tracker()
+                override fun childProgressTracker(): ProgressTracker = MembershipBroadcastFlows.DistributeTransactionsToGroupFlow.tracker()
             }
 
             fun tracker() = ProgressTracker(FETCHING_GROUP_DETAILS,
@@ -237,8 +236,8 @@ object GroupDataAssociationFlows {
             progressTracker.currentStep = DISTRIBUTING_GROUP_DATA
             // distribute the transaction to all group members
             groupIds.forEach { groupId ->
-                subFlow(DistributeTransactionToGroupFlow(
-                    signedTransaction = finalizedTx,
+                subFlow(MembershipBroadcastFlows.DistributeTransactionsToGroupFlow(
+                    signedTransactions = listOf(finalizedTx),
                     groupId = groupId) { it != ourIdentity }
                 )
             }

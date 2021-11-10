@@ -27,8 +27,8 @@ object MembershipBroadcastFlows {
      */
     @Suppress("unused")
     @InitiatingFlow
-    class DistributeTransactionToNetworkFlow(
-        private val signedTransaction: SignedTransaction,
+    class DistributeTransactionsToNetworkFlow(
+        private val signedTransactions: List<SignedTransaction>,
         private val networkId: String,
         private val groupFilterCriteria: (GroupState) -> Boolean = { true }
     ) : MembershipManagementFlow<Unit>() {
@@ -58,8 +58,8 @@ object MembershipBroadcastFlows {
                     .toSet()
 
             progressTracker.currentStep = DISTRIBUTING_PARALLELY
-            serviceHub.cordaService(DistributionService::class.java).distributeTransactionParallel(
-                signedTransaction, allParties
+            serviceHub.cordaService(DistributionService::class.java).distributeTransactionsParallel(
+                signedTransactions, allParties
             )
         }
 
@@ -72,8 +72,8 @@ object MembershipBroadcastFlows {
      */
     @Suppress("unused")
     @InitiatingFlow
-    class DistributeTransactionToGroupFlow(
-        private val signedTransaction: SignedTransaction,
+    class DistributeTransactionsToGroupFlow(
+        private val signedTransactions: List<SignedTransaction>,
         private val groupId: String,
         private val partyFilterCriteria: (Party) -> Boolean = { true }
     ) : MembershipManagementFlow<Unit>() {
@@ -96,7 +96,7 @@ object MembershipBroadcastFlows {
             bnService.getBusinessNetworkGroup(groupId = UniqueIdentifier.fromString(groupId))?.apply {
                 // check if the invoker is a part of the network
 
-                log.info("Authorizing ${ourIdentity.name} to distribute transaction ${signedTransaction.id} to group : $groupId")
+                log.info("Authorizing ${ourIdentity.name} to distribute transaction to group : $groupId")
 
                 progressTracker.currentStep = AUTHORIZING_DISTRIBUTION_PERMISSIONS
                 authorise(state.data.networkId, bnService) { it.canDistributeData() }
@@ -107,7 +107,7 @@ object MembershipBroadcastFlows {
                 progressTracker.currentStep = DISTRIBUTING_PARALLELY
 
                 serviceHub.cordaService(DistributionService::class.java)
-                    .distributeTransactionParallel(signedTransaction, recipientParties)
+                    .distributeTransactionsParallel(signedTransactions, recipientParties)
             }
         }
     }

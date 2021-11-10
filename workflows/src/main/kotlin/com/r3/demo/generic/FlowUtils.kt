@@ -1,10 +1,7 @@
 package com.r3.demo.generic
 
 import net.corda.bn.flows.MembershipNotFoundException
-import net.corda.core.contracts.ContractState
-import net.corda.core.contracts.LinearState
-import net.corda.core.contracts.StateAndRef
-import net.corda.core.contracts.StatePointer
+import net.corda.core.contracts.*
 import net.corda.core.flows.FlowException
 import net.corda.core.node.ServiceHub
 

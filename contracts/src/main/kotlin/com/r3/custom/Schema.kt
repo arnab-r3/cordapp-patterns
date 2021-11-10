@@ -22,6 +22,7 @@ enum class DataType {
 data class Schema(
     val id: UUID = UUID.randomUUID(),
     val name: String,
+    val version: String,
     val description: String?,
     val attributes: Set<Attribute>,
     val parties: List<X500Name> // defines the list of participants with whom the schema should be distributed

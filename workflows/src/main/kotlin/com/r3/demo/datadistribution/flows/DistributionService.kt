@@ -32,4 +32,15 @@ class DistributionService(private val appServiceHub: AppServiceHub) : SingletonS
             executorService.submit(CallDistributeFlow(appServiceHub, party, signedTransaction))
         }
     }
+
+    fun distributeTransactionsParallel (signedTransactions: Iterable<SignedTransaction>, parties: Set<Party>) {
+        if (!this::executorService.isInitialized) {
+            executorService = Executors.newFixedThreadPool(MAX_THREAD_SIZE)
+        }
+        for (party in parties){
+            for (transaction in signedTransactions){
+                executorService.submit(CallDistributeFlow(appServiceHub, party, transaction))
+            }
+        }
+    }
 }
