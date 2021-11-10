@@ -1,15 +1,25 @@
 package com.r3.custom
 
 import com.r3.custom.DataType.*
-import net.corda.core.contracts.CommandData
-import net.corda.core.contracts.Contract
+import net.corda.core.contracts.*
+import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
+import net.corda.core.node.ServiceHub
 import net.corda.core.serialization.CordaSerializable
+import net.corda.core.transactions.LedgerTransaction
 import java.time.Duration
 import java.time.Instant
 import java.util.*
 import kotlin.reflect.KClass
 import kotlin.reflect.full.createInstance
+
+/**
+ * Couple of observations
+ * 1. Using the generic T on the SchemaState binds it tightly to the ContractAPI and cannot be used in the RPC MW
+ * 2. Using the access control permissions unnecessarily complicates the API to depend on the generic type T
+ * 3. The APIs also have heavy dependency on Corda Specific terms like [ContractState] and [LinearState] which couples it even further to the Corda Contract APIs
+ * 4. There are some instances where you cannot avoid this coupling. Better to use inheritance to define non-Corda specific API and then extend it to use Corda Specific terms.
+ */
 
 @CordaSerializable
 interface PermissionCommandData<T : Contract> : CommandData {
@@ -31,16 +41,16 @@ interface PermissionCommandData<T : Contract> : CommandData {
 
     /**
      * Check permissions to execute a command w.r.t to a given party
-     * @param schema to validate against
+     * @param schemaState to validate against
      * @param requestingParty the party invoking the command
      */
-    fun checkPermissions(schema: Schema<T>, requestingParty: Party) =
-        schema.attributes.forEach {
+    fun checkPermissions(schemaState: SchemaState<T>, requestingParty: Party) =
+        schemaState.attributes.forEach {
             it.associatedEvents?.filter { filterCandidate ->
                 filterCandidate.triggeringCommand.isInstance(this)
             }?.forEach { event ->
                 require(event.checkPermission(requestingParty, this)) {
-                    "Insufficient privileges for $requestingParty on schema ${schema.name} when invoking command $this"
+                    "Insufficient privileges for $requestingParty on schema ${schemaState.name} when invoking command $this"
                 }
             }
         }
@@ -57,16 +67,23 @@ enum class DataType {
 }
 
 @CordaSerializable
-class Schema<T : Contract>(
+class SchemaState<T : Contract>(
     val id: UUID = UUID.randomUUID(),
     val name: String,
     val description: String?,
-    val attributes: Set<Attribute<T>>
-) {
-    constructor(name: String, attributes: Set<Attribute<T>>) : this(id = UUID.randomUUID(),
+    val attributes: Set<Attribute<T>>,
+    override val participants: List<AbstractParty> // defines the list of participants with whom the schema should be distributed
+) : ContractState {
+
+    constructor(
+        name: String,
+        attributes: Set<Attribute<T>>,
+        participants: List<AbstractParty>
+    ) : this(id = UUID.randomUUID(),
         name = name,
         description = null,
-        attributes = attributes)
+        attributes = attributes,
+        participants = participants)
 }
 
 @CordaSerializable
@@ -184,26 +201,22 @@ data class EventDescriptor<T : Contract>(
     val description: String?,
     val triggeringContract: KClass<T>,
     val triggeringCommand: KClass<out PermissionCommandData<T>>,
-    val recipients: Set<Party>, // TODO what happens when the recipients change after creation
-    val signers: Set<Party>,    // TODO what happens when signers change after creation
     val accessControlDefinition: AccessControlDefinition
 ) {
     init {
-        require(accessControlDefinition.parties.all { it in (signers + recipients) })
-        { "Access control definitions must use parties from the list of recipients or signers" }
-
         validatePermissionsAgainstCommandDefinitions()
     }
 
     private fun validatePermissionsAgainstCommandDefinitions() {
         val instance = triggeringCommand.createInstance()
-        require (!(!instance.doesCreate() && accessControlDefinition.canCreate)
+        require(!(!instance.doesCreate() && accessControlDefinition.canCreate)
                 || (!instance.doesUpdate() && accessControlDefinition.canUpdate)
                 || (!instance.doesDelete() && accessControlDefinition.canDelete))
-        {"Assigned permissions cannot be higher than contract command definitions.\n" +
-                "operation: $triggeringCommand, doesCreate: ${instance.doesCreate()}, doesUpdate: ${instance.doesUpdate()}, doesDelete: ${instance.doesDelete()}\n" +
-                "assigned for event name: $name: canCreate: ${accessControlDefinition.canCreate}, canUpdate: ${accessControlDefinition.canUpdate}, canDelete: ${accessControlDefinition.canDelete}"}
-
+        {
+            "Assigned permissions cannot be higher than contract command definitions.\n" +
+                    "operation: $triggeringCommand, doesCreate: ${instance.doesCreate()}, doesUpdate: ${instance.doesUpdate()}, doesDelete: ${instance.doesDelete()}\n" +
+                    "assigned for event name: $name: canCreate: ${accessControlDefinition.canCreate}, canUpdate: ${accessControlDefinition.canUpdate}, canDelete: ${accessControlDefinition.canDelete}"
+        }
     }
 
     private fun checkPermissionAgainstDefinition(
@@ -229,24 +242,33 @@ data class EventDescriptor<T : Contract>(
 
 @CordaSerializable
 data class AccessControlDefinition(
-    val parties: Set<Party>,
+    val parties: Set<AbstractParty>,
     val canCreate: Boolean = false,
     val canUpdate: Boolean = false,
     val canDelete: Boolean = false
 )
 
 @CordaSerializable
+@BelongsToContract(ExtensibleWorkflowContract::class)
 data class SchemaBackedKV<T : Contract>(
     val id: UUID = UUID.randomUUID(),
     val kvPairs: Map<String, String>,
-    val schema: Schema<T>
-) {
+    val schemaStatePointer: StatePointer<SchemaState<T>>,
+    override val participants: List<AbstractParty>  // defines the list of participants to whom this KV should be distributed
+) : ContractState {
     /**
      * Validate the KV against the backing schema
      * @param permissionCommand the command invocation to validate the schema against, validate against all if null
      * @throws IllegalArgumentException if validation fails
      */
-    fun validateSchema(permissionCommand: KClass<out PermissionCommandData<T>>? = null) {
+    fun validateSchema(permissionCommand: KClass<out PermissionCommandData<T>>? = null, ledgerTransaction: LedgerTransaction?, serviceHub: ServiceHub?) {
+
+        val schemaStateAndRef = ledgerTransaction?.let { schemaStatePointer.resolve(ledgerTransaction) }?:
+        serviceHub?.let { schemaStatePointer.resolve(serviceHub) }?:
+        throw java.lang.IllegalArgumentException("At least one of ledger transaction or service hub reference should be present while validating schema")
+
+        val schema = schemaStateAndRef.state.data
+
         kvPairs.keys.forEach {
             require(it in schema.attributes.map { attr -> attr.name })
             { "Unknown key $it present in schema ${schema.name}" }

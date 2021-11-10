@@ -9,7 +9,7 @@ import org.junit.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 
-class CustomSchemaStateTests {
+class SchemaStateTests {
 
 
     private val ALICE_PARTY = TestIdentity(ALICE_NAME).party
@@ -46,8 +46,6 @@ class CustomSchemaStateTests {
                 description = "Creation",
                 triggeringContract = DummyContract::class,
                 triggeringCommand = DummyContract.Commands.OperationOne::class,
-                recipients = setOf(ALICE_PARTY, BOB_PARTY),
-                signers = setOf(CHARLIE_PARTY, DAVE_PARTY),
                 accessControlDefinition = AccessControlDefinition(
                     parties = setOf(ALICE_PARTY),
                     canCreate = true
@@ -58,8 +56,6 @@ class CustomSchemaStateTests {
                 description = "Update",
                 triggeringContract = DummyContract::class,
                 triggeringCommand = DummyContract.Commands.OperationThree::class,
-                recipients = setOf(ALICE_PARTY, BOB_PARTY),
-                signers = setOf(CHARLIE_PARTY, DAVE_PARTY),
                 accessControlDefinition = AccessControlDefinition(
                     parties = setOf(ALICE_PARTY, BOB_PARTY),
                     canUpdate = true
@@ -70,8 +66,6 @@ class CustomSchemaStateTests {
                 description = "CreateAndUpdate",
                 triggeringContract = DummyContract::class,
                 triggeringCommand = DummyContract.Commands.OperationTwo::class,
-                recipients = setOf(ALICE_PARTY, BOB_PARTY),
-                signers = setOf(CHARLIE_PARTY, DAVE_PARTY),
                 accessControlDefinition = AccessControlDefinition(
                     parties = setOf(ALICE_PARTY, BOB_PARTY),
                     canUpdate = true,
@@ -83,8 +77,6 @@ class CustomSchemaStateTests {
                 description = "Delete",
                 triggeringContract = DummyContract::class,
                 triggeringCommand = DummyContract.Commands.OperationFour::class,
-                recipients = setOf(ALICE_PARTY, BOB_PARTY),
-                signers = setOf(CHARLIE_PARTY, DAVE_PARTY),
                 accessControlDefinition = AccessControlDefinition(
                     parties = setOf(DAVE_PARTY, CHARLIE_PARTY),
                     canDelete = true
@@ -96,8 +88,9 @@ class CustomSchemaStateTests {
 
     @Test
     fun `test minimal schema`() {
-        val schema = Schema<DummyContract>(
+        val schema = SchemaState<DummyContract>(
             name = "dummy schema",
+            participants = listOf(ALICE_PARTY, BOB_PARTY, DAVE_PARTY, CHARLIE_PARTY),
             attributes = setOf(
                 Attribute(
                     name = "firstAttribute",    // firstAttribute is always updated or modified with Create or Update
@@ -121,7 +114,7 @@ class CustomSchemaStateTests {
                 "firstAttribute" to "hellos",
                 "secondAttribute" to "25"
             ),
-            schema = schema
+
         )
 
         //assertEquals(true, kv.validateSchema(), "Schema validation failed")
@@ -151,8 +144,10 @@ class CustomSchemaStateTests {
 
     @Test
     fun `test permissions`() {
-        val schema = Schema<DummyContract>(
+        val schema = SchemaState<DummyContract>(
             name = "dummy schema",
+            recipients = setOf(ALICE_PARTY, BOB_PARTY, DAVE_PARTY, CHARLIE_PARTY),
+            signers = setOf(ALICE_PARTY, BOB_PARTY, DAVE_PARTY, CHARLIE_PARTY),
             attributes = setOf(
                 Attribute(
                     name = "firstAttribute",    // firstAttribute is always updated or modified with Create or Update
