@@ -1,8 +1,8 @@
 package com.r3.custom
 
 import com.r3.custom.DataType.*
+import net.corda.core.identity.CordaX500Name
 import net.corda.core.serialization.CordaSerializable
-import sun.security.x509.X500Name
 import java.time.Duration
 import java.time.Instant
 import java.util.*
@@ -25,7 +25,7 @@ data class Schema(
     val version: String,
     val description: String?,
     val attributes: Set<Attribute>,
-    val parties: List<X500Name> // defines the list of participants with whom the schema should be distributed
+    val parties: List<CordaX500Name> // defines the list of participants with whom the schema should be distributed
 )
 
 

@@ -21,26 +21,35 @@ class GroupDataAssociationContract : Contract {
                 "CreateData command should have a single output state of type GroupDataAssociationState" using
                         (groupDataAssociationStateOutputs.size == 1)
                 "CreateData command should have mandatory value & participant field" using
-                        (groupDataAssociationStateOutputs.single().value != null
-                                && groupDataAssociationStateOutputs.single().participants.isNotEmpty())
+                        (groupDataAssociationStateOutputs.single().participants.isNotEmpty())
             }
-            is Commands.UpdateGroups -> {
+            is Commands.UpdateGroupParticipants -> {
                 requireThat {
-                    "UpdateGroups command should have a single input state" using (groupDataAssociationStateInputs.size == 1)
-                    "UpdateGroups command should have a single output state" using (groupDataAssociationStateOutputs.size == 1)
-                    "UpdateGroups command should have same data identifier" using
+                    "UpdateGroupParticipants command should have a single input state of type GroupDataAssociationState" using (groupDataAssociationStateInputs.size == 1)
+                    "UpdateGroupParticipants command should have a single output state of type GroupDataAssociationState" using (groupDataAssociationStateOutputs.size == 1)
+                    "UpdateGroupParticipants command should have same data identifier" using
                             (groupDataAssociationStateOutputs.single().linearId == groupDataAssociationStateInputs.single().linearId)
-                    "UpdateGroups should not change the value" using
+                    "UpdateGroupParticipants should not change the value" using
                             (groupDataAssociationStateOutputs.single().value == groupDataAssociationStateInputs.single().value)
                 }
             }
-
+            is Commands.UpdateGroupData -> {
+                requireThat {
+                    "UpdateGroupData command should have a single input state of type GroupDataAssociationState" using (groupDataAssociationStateInputs.size == 1)
+                    "UpdateGroupData command should have a single output state of type GroupDataAssociationState" using (groupDataAssociationStateOutputs.size == 1)
+                    "UpdateGroupData command should have same data identifier" using
+                            (groupDataAssociationStateOutputs.single().linearId == groupDataAssociationStateInputs.single().linearId)
+                    "UpdateGroupData should not change the participants" using
+                            (groupDataAssociationStateOutputs.single().participants == groupDataAssociationStateInputs.single().participants
+                                    && groupDataAssociationStateInputs.single().associatedGroupStates == groupDataAssociationStateOutputs.single().associatedGroupStates)
+                }
+            }
         }
-
     }
 
     interface Commands : CommandData {
         class CreateData : TypeOnlyCommandData(), Commands
-        class UpdateGroups : TypeOnlyCommandData(), Commands
+        class UpdateGroupParticipants : TypeOnlyCommandData(), Commands
+        class UpdateGroupData: TypeOnlyCommandData(), Commands
     }
 }

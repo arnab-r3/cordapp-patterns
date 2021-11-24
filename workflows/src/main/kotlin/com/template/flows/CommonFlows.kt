@@ -14,7 +14,7 @@ import java.security.PublicKey
 @InitiatingFlow
 class CollectSignaturesAndFinalizeTransactionFlow(
     private val builder: TransactionBuilder,
-    private val myOptionalKeys: Iterable<PublicKey>?,
+    private val myOptionalKeys: Iterable<PublicKey>? = null,
     private val signers: Set<Party>,
     private val participants: Set<Party>
 ) : FlowLogic<SignedTransaction>() {
