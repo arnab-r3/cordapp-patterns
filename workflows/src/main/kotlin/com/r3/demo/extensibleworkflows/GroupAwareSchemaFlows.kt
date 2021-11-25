@@ -4,6 +4,7 @@ import co.paralleluniverse.fibers.Suspendable
 import com.r3.custom.Schema
 import com.r3.custom.SchemaState
 import com.r3.demo.datadistribution.flows.GroupDataAssociationFlows
+import com.r3.demo.datadistribution.flows.GroupDataManagementFlow
 import com.r3.demo.datadistribution.flows.MembershipBroadcastFlows
 import com.r3.demo.generic.getDefaultNotary
 import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
@@ -19,7 +20,7 @@ object CreateGroupAwareSchema {
     class Initiator(
         val groupIds: Set<String>,
         val schema: Schema
-    ) : GroupDataAssociationFlows.GroupDataManagementFlow<String>() {
+    ) : GroupDataManagementFlow<String>() {
 
         companion object {
             object FETCHING_GROUP_DETAILS : ProgressTracker.Step("Fetching Group Details")
@@ -51,7 +52,7 @@ object CreateGroupAwareSchema {
             // if the groupIds are not empty then populate the participants with the Data Distribution permissions,
             // otherwise add ourself
             progressTracker.currentStep = FETCHING_GROUP_DETAILS
-            val groupDataParticipants = getGroupDataParticipants(groupIds)
+            val groupDataParticipants = getGroupsParticipants(groupIds)
 
             progressTracker.currentStep = BUILDING_THE_TX
 

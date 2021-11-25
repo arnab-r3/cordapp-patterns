@@ -16,7 +16,7 @@ class GroupDataAssociationContract : Contract {
         val groupDataAssociationStateOutputs = tx.outputsOfType<GroupDataAssociationState>()
 
         when (command.value) {
-            is Commands.CreateData -> requireThat {
+            is Commands.CreateAssociation -> requireThat {
                 "CreateData command should not have any input states" using tx.inputStates.isEmpty()
                 "CreateData command should have a single output state of type GroupDataAssociationState" using
                         (groupDataAssociationStateOutputs.size == 1)
@@ -30,7 +30,7 @@ class GroupDataAssociationContract : Contract {
                     "UpdateGroupParticipants command should have same data identifier" using
                             (groupDataAssociationStateOutputs.single().linearId == groupDataAssociationStateInputs.single().linearId)
                     "UpdateGroupParticipants should not change the value" using
-                            (groupDataAssociationStateOutputs.single().value == groupDataAssociationStateInputs.single().value)
+                            (groupDataAssociationStateOutputs.single().metaData == groupDataAssociationStateInputs.single().metaData)
                 }
             }
             is Commands.UpdateGroupData -> {
@@ -48,7 +48,7 @@ class GroupDataAssociationContract : Contract {
     }
 
     interface Commands : CommandData {
-        class CreateData : TypeOnlyCommandData(), Commands
+        class CreateAssociation : TypeOnlyCommandData(), Commands
         class UpdateGroupParticipants : TypeOnlyCommandData(), Commands
         class UpdateGroupData: TypeOnlyCommandData(), Commands
     }

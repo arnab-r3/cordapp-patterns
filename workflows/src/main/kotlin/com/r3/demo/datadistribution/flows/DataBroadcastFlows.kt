@@ -21,6 +21,7 @@ object DataBroadCastFlows {
         override fun call() {
             val flowSession = initiateFlow(counterParty)
             subFlow(SendTransactionFlow(flowSession, signedTransaction))
+//            subFlow(SendStateAndRefFlow)
         }
     }
 
@@ -31,6 +32,8 @@ object DataBroadCastFlows {
         @Suspendable
         override fun call() {
             subFlow(ReceiveTransactionFlow(session, statesToRecord = StatesToRecord.ALL_VISIBLE))
+
+            // TODO add logic if we are entitled to distribute then distribute
         }
     }
 

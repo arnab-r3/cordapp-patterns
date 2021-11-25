@@ -26,9 +26,9 @@ fun validateAndFetchGroupParticipants(
         "The transaction should include the reference to the same GroupDataReferenceState as mentioned in IoUState" using
                 (grpDataAssociationState.linearId == referredGroupDataAssociationPointer.pointer)
 
-        val groupIdsReferred = grpDataAssociationState.associatedGroupStates?.map {
+        val groupIdsReferred = grpDataAssociationState.associatedGroupStates.map {
             it.pointer
-        } ?: throw IllegalArgumentException("Groups in GroupDataAssociationState should not be empty")
+        }
 
 
         "Transaction should include every instance of group state that is referred in GroupDataAssociationState" using

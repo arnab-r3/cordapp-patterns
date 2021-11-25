@@ -57,16 +57,18 @@ class IOUContract : Contract {
 
 
             "GroupDataAssociationState should contain the max value that can be lent" using
-                    (grpDataAssociationState.value != null)
+                    (grpDataAssociationState.metaData.containsKey("iouLimit"))
 
+            val maxValue: Int
             try {
-                val maxValue = (grpDataAssociationState.value as String).toInt()
-            }catch (e: ClassCastException) {
+                maxValue = grpDataAssociationState.metaData["iouLimit"]?.toInt()
+                    ?: throw IllegalArgumentException("metadata should contain max iou limit")
+            } catch (e: ClassCastException) {
                 throw IllegalArgumentException("")
             }
 
             "The IoU cannot have a value more than the configured maxIouValue in GroupDataAssociationState" using
-                    (outputIoUState.value <= grpDataAssociationState.value.toInt())
+                    (outputIoUState.value <= maxValue)
 
         }
     }

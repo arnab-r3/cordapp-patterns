@@ -1,8 +1,8 @@
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.2.71"
 
-    implementation "net.corda:corda-test-utils:4.7"
-    implementation "net.corda:corda-node-driver:4.7"
+    implementation "net.corda:corda-test-utils:4.8"
+    implementation "net.corda:corda-node-driver:4.8"
 
     implementation project(":contracts")
 }

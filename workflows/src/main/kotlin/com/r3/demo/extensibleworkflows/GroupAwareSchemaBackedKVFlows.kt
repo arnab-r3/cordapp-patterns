@@ -4,7 +4,7 @@ import co.paralleluniverse.fibers.Suspendable
 import com.r3.custom.SchemaBackedKVContract
 import com.r3.custom.SchemaBackedKVState
 import com.r3.custom.SchemaState
-import com.r3.demo.datadistribution.flows.GroupDataAssociationFlows
+import com.r3.demo.datadistribution.flows.GroupDataManagementFlow
 import com.r3.demo.datadistribution.flows.MembershipBroadcastFlows
 import com.r3.demo.generic.flowFail
 import com.r3.demo.generic.getDefaultNotary
@@ -34,7 +34,7 @@ object ManageGroupAwareSchemaBackedKVData {
         private val schemaId: String,
         private val data: Map<String, String>,
         private val operation: Operation
-    ) : GroupDataAssociationFlows.GroupDataManagementFlow<String>() {
+    ) : GroupDataManagementFlow<String>() {
 
         companion object {
             object FETCHING_GROUP_DETAILS : ProgressTracker.Step("Fetching Group Details")
@@ -62,7 +62,7 @@ object ManageGroupAwareSchemaBackedKVData {
         override val progressTracker = tracker()
 
 
-        fun getSchemaBackedKVState(schemaBackedKVId: String): StateAndRef<SchemaBackedKVState> {
+        private fun getSchemaBackedKVState(schemaBackedKVId: String): StateAndRef<SchemaBackedKVState> {
             val linearStateQueryCriteria = QueryCriteria.LinearStateQueryCriteria()
                 .withUuid(listOf(UUID.fromString(schemaBackedKVId)))
                 .withStatus(Vault.StateStatus.UNCONSUMED)
@@ -95,7 +95,7 @@ object ManageGroupAwareSchemaBackedKVData {
             val participants = groupDataState.state.data.participants
             val signingKeys = groupDataState.state.data.participants.map { it.owningKey }
 
-            var returnedSchemaBackedKVStateId: String = ""
+            var returnedSchemaBackedKVStateId = ""
 
             val transactionBuilder = when (operation) {
                 Operation.CREATE -> {

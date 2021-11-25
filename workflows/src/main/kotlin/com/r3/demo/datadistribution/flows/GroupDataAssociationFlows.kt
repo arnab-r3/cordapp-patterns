@@ -6,15 +6,19 @@ import com.r3.demo.common.canManageData
 import com.r3.demo.datadistribution.contracts.GroupDataAssociationContract
 import com.r3.demo.datadistribution.contracts.GroupDataAssociationState
 import com.r3.demo.generic.argFail
+import com.r3.demo.generic.flowFail
 import com.r3.demo.generic.getDefaultNotary
 import com.r3.demo.generic.linearPointer
 import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
 import net.corda.bn.flows.BNService
 import net.corda.bn.flows.MembershipManagementFlow
 import net.corda.bn.states.GroupState
+import net.corda.bn.states.MembershipState
 import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.UniqueIdentifier
+import net.corda.core.flows.InitiatingFlow
+import net.corda.core.flows.StartableByRPC
 import net.corda.core.identity.Party
 import net.corda.core.node.services.Vault
 import net.corda.core.node.services.queryBy
@@ -24,6 +28,83 @@ import net.corda.core.utilities.NonEmptySet
 import net.corda.core.utilities.ProgressTracker
 import java.util.*
 
+
+abstract class GroupDataManagementFlow<T> : MembershipManagementFlow<T>() {
+
+    /**
+     * Fetch the group participants
+     * @param groupIds to fetch the participant list from
+     */
+    fun getGroupsParticipants(
+        groupIds: Set<String>,
+        filter: (MembershipState) -> Boolean = { true }
+    ): Set<Party> {
+
+        val bnService = serviceHub.cordaService(BNService::class.java)
+        return groupIds.flatMap { groupId ->
+
+            val groupParticipants = mutableSetOf<Party>()
+
+            bnService.getBusinessNetworkGroup(UniqueIdentifier.fromString(groupId))?.apply {
+                // check if we are a part of the network and have data admin role
+                authorise(state.data.networkId, bnService) { it.canManageData() && it.canDistributeData() }
+
+                val dataDistributionParties = state.data.participants.filter { party ->
+                    bnService.getMembership(state.data.networkId, party)?.state?.data?.let {
+                        filter.invoke(it)
+                    } ?: flowFail("Cannot fetch membership details for ${party.name} " +
+                            "in GroupState ${state.data.name} of network ${state.data.networkId}")
+                }
+
+                groupParticipants.addAll(dataDistributionParties)
+            } ?: argFail("Group $groupId does not exist")
+
+            (groupParticipants + ourIdentity).toSet()
+
+        }.toSet()
+    }
+
+
+    /**
+     * Fetch Group Data state with the group data association state identifier
+     * @param groupDataAssociationStateIdentifier stored as [UniqueIdentifier]
+     */
+    fun getGroupDataState(groupDataAssociationStateIdentifier: String): StateAndRef<GroupDataAssociationState> {
+
+        val linearStateQueryCriteria = QueryCriteria.LinearStateQueryCriteria()
+            .withUuid(listOf(UUID.fromString(groupDataAssociationStateIdentifier)))
+            .withStatus(Vault.StateStatus.UNCONSUMED)
+            .withRelevancyStatus(Vault.RelevancyStatus.ALL)
+
+        val queryResult = serviceHub
+            .vaultService
+            .queryBy<GroupDataAssociationState>(linearStateQueryCriteria)
+            .states
+        require(queryResult.size == 1)
+        { "Could not find GroupDataAssociationState with id: $groupDataAssociationStateIdentifier" }
+
+        return queryResult.single()
+
+    }
+
+    /**
+     * Fetch associated states that were committed in the same transaction as the [GroupDataAssociationState]
+     * @param groupDataAssociationStateIdentifier stored as [UniqueIdentifier]
+     */
+    fun getGroupDataAssociatedStates(groupDataAssociationStateIdentifier: String): List<StateAndRef<ContractState>>? {
+        val groupDataState = getGroupDataState(groupDataAssociationStateIdentifier)
+
+//            return serviceHub.validatedTransactions.getTransaction(groupDataState.ref.txhash)?.coreTransaction?.let {
+//                it.outputStates.filterNot { contractState -> contractState !is GroupDataAssociationState }
+//            } ?: flowFail("Could not find the transaction of GroupDataAssociationState in the ledger. " +
+//                    "This is likely because the latest transaction has not been shared with this node")
+
+        return serviceHub.validatedTransactions.getTransaction(groupDataState.ref.txhash)
+            ?.coreTransaction?.filterOutRefs { it !is GroupDataAssociationState }
+
+    }
+}
+
 /**
  * Use these flows when associating and distributing relevant states to parties. The capabilities include creating an
  * association and including a set of states that will be distributed along with the association. One can also update
@@ -32,55 +113,6 @@ import java.util.*
  */
 object GroupDataAssociationFlows {
 
-    abstract class GroupDataManagementFlow<T> : MembershipManagementFlow<T>() {
-
-        fun getGroupDataParticipants(groupIds: Set<String>?): Set<Party> {
-
-            val bnService = serviceHub.cordaService(BNService::class.java)
-            return groupIds?.flatMap { groupId ->
-
-                val groupParticipants = mutableSetOf<Party>()
-                bnService.getBusinessNetworkGroup(UniqueIdentifier.fromString(groupId))?.apply {
-                    // check if we are a part of the network and have data admin role
-                    authorise(state.data.networkId, bnService) { it.canManageData() && it.canDistributeData() }
-                    val dataDistributionParties = state.data.participants.filter { party ->
-                        val membershipState = bnService.getMembership(state.data.networkId, party)?.state?.data
-                        membershipState?.canDistributeData() ?: false
-                    }
-                    groupParticipants.addAll(dataDistributionParties)
-                } ?: argFail("Group $groupId does not exist")
-
-                (groupParticipants + ourIdentity).toSet()
-
-            }?.toSet() ?: setOf(ourIdentity)
-        }
-
-
-        fun getGroupDataState(groupDataAssociationStateIdentifier: String): StateAndRef<GroupDataAssociationState> {
-
-            val linearStateQueryCriteria = QueryCriteria.LinearStateQueryCriteria()
-                .withUuid(listOf(UUID.fromString(groupDataAssociationStateIdentifier)))
-                .withStatus(Vault.StateStatus.UNCONSUMED)
-                .withRelevancyStatus(Vault.RelevancyStatus.ALL)
-
-            val queryResult = serviceHub.vaultService.queryBy<GroupDataAssociationState>(linearStateQueryCriteria).states
-            require(queryResult.size == 1) {"Could not find GroupDataAssociationState with id: $groupDataAssociationStateIdentifier"}
-            return queryResult.single()
-
-        }
-
-        fun getGroupDataAssociatedStates(groupDataAssociationStateIdentifier: String): List<StateAndRef<ContractState>>? {
-            val groupDataState = getGroupDataState(groupDataAssociationStateIdentifier)
-
-//            return serviceHub.validatedTransactions.getTransaction(groupDataState.ref.txhash)?.coreTransaction?.let {
-//                it.outputStates.filterNot { contractState -> contractState !is GroupDataAssociationState }
-//            } ?: flowFail("Could not find the transaction of GroupDataAssociationState in the ledger. " +
-//                    "This is likely because the latest transaction has not been shared with this node")
-
-             return serviceHub.validatedTransactions.getTransaction(groupDataState.ref.txhash)?.coreTransaction?.filterOutRefs { it !is GroupDataAssociationState }
-
-        }
-    }
 
     /**
      * Create Data item by the data administrator and distribute to the groups of participants.
@@ -88,6 +120,8 @@ object GroupDataAssociationFlows {
      * @param data KV pairs, can act as tags
      * @param groupIds relevant groups
      */
+    @InitiatingFlow
+    @StartableByRPC
     class CreateDataFlow(
         private val txBuilder: TransactionBuilder,       // this can be changed to the specific type as per the needs
         // tagged data,
@@ -143,23 +177,29 @@ object GroupDataAssociationFlows {
             // if the groupIds are not empty then populate the participants with the Data Distribution permissions,
             // otherwise add ourself
             progressTracker.currentStep = FETCHING_GROUP_DETAILS
-            val groupDataParticipants = getGroupDataParticipants(groupIds)
+            val groupParticipantsWithDistributionRights = getGroupsParticipants(groupIds) {
+                it.canDistributeData()
+            }
+
+            val groupParticipantsWithDataManagementRights = getGroupsParticipants(groupIds) {
+                it.canManageData() && it.canDistributeData()
+            }
 
             progressTracker.currentStep = BUILDING_THE_TX
             val groupLinearPointers =
                 groupIds.map { linearPointer(it, GroupState::class.java) }.toSet()
 
             val outputState = GroupDataAssociationState(
-                value = data,   // the tagged data we want to store
+                metaData = data,   // the tagged data we want to store
                 associatedGroupStates = groupLinearPointers,
-                participants = groupDataParticipants.toList())
+                participants = groupParticipantsWithDistributionRights.toList())
 
-            val signers = groupDataParticipants + ourIdentity
+            val signers = groupParticipantsWithDataManagementRights + ourIdentity
             val signerKeys = signers.map { it.owningKey }
 
             txBuilder
                 .addOutputState(outputState)
-                .addCommand(GroupDataAssociationContract.Commands.CreateData(), signerKeys)
+                .addCommand(GroupDataAssociationContract.Commands.CreateAssociation(), signerKeys)
 
             progressTracker.currentStep = VERIFYING_THE_TX
             txBuilder.verify(serviceHub)
@@ -169,7 +209,7 @@ object GroupDataAssociationFlows {
                 builder = txBuilder,
                 myOptionalKeys = null,
                 signers = signers,
-                participants = groupDataParticipants
+                participants = groupParticipantsWithDistributionRights
             ))
 
 
@@ -178,7 +218,11 @@ object GroupDataAssociationFlows {
             groupIds.forEach { groupId ->
                 subFlow(MembershipBroadcastFlows.DistributeTransactionsToGroupFlow(
                     signedTransactions = listOf(finalizedTx),    // this finalized transaction contains all of the embedded states
-                    groupId = groupId) { it !in groupDataParticipants }
+                    groupId = groupId)
+
+                { party -> // don't send it again to the data admins of the data distributors
+                    party !in (groupParticipantsWithDistributionRights + groupParticipantsWithDataManagementRights)
+                }
                 )
             }
 
@@ -187,9 +231,14 @@ object GroupDataAssociationFlows {
     }
 
     /**
-     * Flow to add new groups to the association
+     * Flow to add new groups to the association, note that it does not remove the existing group,
+     * it merges the groups instead
+     *
      * @param dataIdentifier the [GroupDataAssociationState] identifier
+     * @param newGroupIds the new group identifiers
      */
+    @InitiatingFlow
+    @StartableByRPC
     @Suppress("unused")
     class UpdateGroupDataParticipantsFlow(
         private val dataIdentifier: String,
@@ -198,7 +247,6 @@ object GroupDataAssociationFlows {
 
         companion object {
             object FETCHING_GROUP_DETAILS : ProgressTracker.Step("Fetching Group Details")
-
             object BUILDING_THE_TX : ProgressTracker.Step("Building transaction.")
             object LINKING_TX : ProgressTracker.Step("Linking previous transactions")
             object VERIFYING_THE_TX : ProgressTracker.Step("Verifying transaction.")
@@ -231,34 +279,43 @@ object GroupDataAssociationFlows {
             val groupDataAssociationStateRef = getGroupDataState(dataIdentifier)
 
             val groupIds =
-                groupDataAssociationStateRef.state.data.associatedGroupStates?.toSet()?.map { linearPointer ->
+                groupDataAssociationStateRef.state.data.associatedGroupStates.toSet().map { linearPointer ->
 
+                    // get the group id from the associated group states
                     val groupId = linearPointer.pointer.id.toString()
+
+                    // find the business network group
                     val businessNetworkGroup = bnService
                         .getBusinessNetworkGroup(UniqueIdentifier.fromString(groupId))
                         ?: argFail("Group $groupId does not exist")
+
                     // check if our identity can manage and distribute data for the group
                     authorise(businessNetworkGroup.state.data.networkId,
                         bnService) { it.canManageData() && it.canDistributeData() }
+
                     groupId
 
-                }?.let {
-                    (it + newGroupIds).toSet()
-                } ?: newGroupIds.toSet()
+                }.let {
+                    (it + newGroupIds).toSet() // combine the new group ids with the newly added group ids
+                }
 
             progressTracker.currentStep = FETCHING_GROUP_DETAILS
 
-            val groupParticipants = getGroupDataParticipants(groupIds)
+            val groupParticipantsWithDataManagementRights = getGroupsParticipants(groupIds){
+                it.canManageData() && it.canDistributeData()
+            }
 
             progressTracker.currentStep = BUILDING_THE_TX
-            val signers = groupParticipants + ourIdentity
+            val signers = groupParticipantsWithDataManagementRights + ourIdentity
             val signerKeys = signers.map { it.owningKey }
 
-            val groupLinearPointers = groupIds.map { linearPointer(it, GroupState::class.java) }.toSet()
+            // transform the new group identifiers into linear pointers to be added in the GroupDataAssociationState
+            val groupLinearPointers =
+                groupIds.map { linearPointer(it, GroupState::class.java) }.toSet()
 
             val outputState = groupDataAssociationStateRef.state.data.copy(
                 associatedGroupStates = groupLinearPointers,
-                participants = groupParticipants.toList()
+                participants = groupParticipantsWithDataManagementRights.toList()
             )
 
             val txBuilder = TransactionBuilder(getDefaultNotary(serviceHub))
@@ -280,10 +337,11 @@ object GroupDataAssociationFlows {
                 builder = txBuilder,
                 myOptionalKeys = null,
                 signers = signers,
-                participants = groupParticipants
+                participants = groupParticipantsWithDataManagementRights
             ))
 
 
+            // TODO check if we explicitly need to do this
             progressTracker.currentStep = LINKING_TX
             // distribute the transaction that produced the current consuming state so that
             val previousTransaction =
@@ -301,7 +359,8 @@ object GroupDataAssociationFlows {
             groupIds.forEach { groupId ->
                 subFlow(MembershipBroadcastFlows.DistributeTransactionsToGroupFlow(
                     signedTransactions = transactionsToDistribute,
-                    groupId = groupId) { it != ourIdentity }
+                    groupId = groupId)
+                { party -> party != ourIdentity }
                 )
             }
 
@@ -318,6 +377,8 @@ object GroupDataAssociationFlows {
      * @param txBuilder containing zero input instances of [GroupDataAssociationState] and the set of input states to be consumed and the output states to be produced
      * @param data the data to be replaced in the [GroupDataAssociationState]
      */
+    @InitiatingFlow
+    @StartableByRPC
     @Suppress("unused")
     class UpdateGroupDataFlow(
         private val dataIdentifier: String,
@@ -356,19 +417,20 @@ object GroupDataAssociationFlows {
             // find out the group data association state from the vault to be distributed to the new set of participants
             val groupDataAssociationStateRef = getGroupDataState(dataIdentifier)
 
-            val participantsToDistributeTo = groupDataAssociationStateRef.state.data.participants
-
-            val groupIds = groupDataAssociationStateRef.state.data.associatedGroupStates?.map {
-                it.pointer.id
+            val groupIds = groupDataAssociationStateRef.state.data.associatedGroupStates.map { it.pointer.id.toString() }.toSet()
+            val groupParticipantsWithDataManagementRights = getGroupsParticipants(groupIds)
+            {
+                it.canManageData() && it.canDistributeData()
             }
 
+
             progressTracker.currentStep = BUILDING_THE_TX
-            val signers = participantsToDistributeTo + ourIdentity
+            val signers = groupParticipantsWithDataManagementRights + ourIdentity
             val signerKeys = signers.map { it.owningKey }
 
 
             val outputState = groupDataAssociationStateRef.state.data.copy(
-                value = data
+                metaData = data
             )
 
             val txBuilder = TransactionBuilder(getDefaultNotary(serviceHub))
@@ -390,22 +452,22 @@ object GroupDataAssociationFlows {
                 builder = txBuilder,
                 myOptionalKeys = null,
                 signers = signers.toSet(),
-                participants = participantsToDistributeTo.toSet()
+                participants = groupParticipantsWithDataManagementRights.toSet()
             ))
 
             progressTracker.currentStep = DISTRIBUTING_GROUP_DATA
             // distribute the transaction to all group members
-            groupIds?.forEach { groupId ->
+            groupIds.forEach { groupId ->
                 subFlow(MembershipBroadcastFlows.DistributeTransactionsToGroupFlow(
                     signedTransactions = listOf(finalizedTx),
-                    groupId = groupId.toString()) { it != ourIdentity }
+                    groupId = groupId) { it != ourIdentity }
                 )
             }
 
             // release the lock
             serviceHub.vaultService.softLockRelease(lockId)
 
-            return "Data with id: ${outputState.linearId} updated and distributed to groups: ${groupIds?.joinToString()}, TxId: ${finalizedTx.id}"
+            return "Data with id: ${outputState.linearId} updated and distributed to groups: ${groupIds.joinToString()}, TxId: ${finalizedTx.id}"
         }
     }
 }

@@ -11,7 +11,7 @@ import net.corda.core.identity.Party
 @BelongsToContract(GroupDataAssociationContract::class)
 data class GroupDataAssociationState(
     override val linearId: UniqueIdentifier = UniqueIdentifier(),
-    val value: Map<String, String>,
-    val associatedGroupStates: Set<LinearPointer<GroupState>>?,
+    val metaData: Map<String, String>,
+    val associatedGroupStates: Set<LinearPointer<GroupState>>,
     override val participants: List<Party>
 ): LinearState
