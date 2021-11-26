@@ -4,6 +4,7 @@ import co.paralleluniverse.fibers.Suspendable
 import com.r3.custom.SchemaBackedKVContract
 import com.r3.custom.SchemaBackedKVState
 import com.r3.custom.SchemaState
+import com.r3.demo.datadistribution.contracts.GroupDataAssociationState
 import com.r3.demo.datadistribution.flows.GroupDataManagementFlow
 import com.r3.demo.datadistribution.flows.MembershipBroadcastFlows
 import com.r3.demo.generic.flowFail
@@ -16,16 +17,26 @@ import net.corda.core.flows.StartableByRPC
 import net.corda.core.node.services.Vault
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
+import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import java.util.*
 
 object ManageGroupAwareSchemaBackedKVData {
 
+    @CordaSerializable
     enum class Operation {
         CREATE, UPDATE
     }
 
+    /**
+     * Manage Group Aware Schema based KV data - CREATE and UPDATE, can add more too
+     * @param groupDataAssociationStateIdentifier that links the schema with the groups
+     * @param schemaId the schema identifier committed alongside with the [GroupDataAssociationState]
+     * @param data in key-value pairs of [String] type
+     * @param operation to be performed, either of [Operation.CREATE] or [Operation.UPDATE]
+     * @param schemaBackedKVId required optionally only during [Operation.UPDATE]
+     */
     @InitiatingFlow
     @StartableByRPC
     class Initiator(
@@ -110,6 +121,7 @@ object ManageGroupAwareSchemaBackedKVData {
                     TransactionBuilder(getDefaultNotary(serviceHub))
                         .addCommand(SchemaBackedKVContract.Commands.CreateData(), signingKeys)
                         .addOutputState(outputState)
+                        .addReferenceState(referredSchemaState.referenced())
                 }
                 Operation.UPDATE -> {
                     schemaBackedKVId?.let { schemaBackedKVId ->
@@ -125,6 +137,7 @@ object ManageGroupAwareSchemaBackedKVData {
                             .addCommand(SchemaBackedKVContract.Commands.UpdateData(), signingKeys)
                             .addInputState(inputState)
                             .addOutputState(outputState)
+                            .addReferenceState(referredSchemaState.referenced())
                     } ?: flowFail("Update operation must include the schema backed KV id to be updated")
                 }
             }

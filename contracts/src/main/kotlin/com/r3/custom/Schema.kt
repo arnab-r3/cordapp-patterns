@@ -36,8 +36,8 @@ data class Attribute(
     val description: String?,
     val dataType: DataType,
     val mandatory: Boolean = false,
-    val regex: Regex?,
-    val customValidator: (String?) -> Boolean = { true },
+    val regex: String?,
+//    val customValidator: (String?) -> Boolean = { true },
     val associatedEvents: Set<String>?
 ) {
     /**
@@ -57,8 +57,12 @@ data class Attribute(
      * @throws IllegalArgumentException if validation fails
      */
     @Suppress
-    fun validateRegex(datum: String?) = require(datum?.let { regex?.matches(it) } == true)
-    { "Regex validation failed for attribute $name, on value : $datum" }
+    fun validateRegex(datum: String?){
+        val regexObj = regex?.toRegex()
+        require(datum?.let { regexObj?.matches(it) } == true)
+        { "Regex validation failed for attribute $name, on value : $datum" }
+    }
+
 
     /**
      * Validate Data Type
@@ -92,7 +96,7 @@ data class Attribute(
         validateMandatory(datum)
         validateDataType(datum)
         validateRegex(datum)
-        require(customValidator(datum)) { "Custom validation failed on attribute $name" }
+//        require(customValidator(datum)) { "Custom validation failed on attribute $name" }
     }
 }
 

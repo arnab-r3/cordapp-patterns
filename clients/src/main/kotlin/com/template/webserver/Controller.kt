@@ -2,6 +2,7 @@ package com.template.webserver
 
 import com.r3.demo.datadistribution.flows.MembershipFlows
 import com.r3.demo.extensibleworkflows.CreateGroupAwareSchema
+import com.r3.demo.extensibleworkflows.ManageGroupAwareSchemaBackedKVData
 import com.template.forms.Forms
 import net.corda.bn.states.MembershipState
 import net.corda.core.CordaException
@@ -24,7 +25,7 @@ import javax.servlet.http.HttpServletRequest
  */
 @RestController
 @RequestMapping("/api") // The paths for HTTP requests are relative to this base path.
-class GroupManagementController() {
+class GroupManagementController {
 
     companion object {
         private val logger = LoggerFactory.getLogger(RestController::class.java)
@@ -68,90 +69,98 @@ class GroupManagementController() {
         ).returnValue.toCompletableFuture()
     }
 
-    @PostMapping("/network/member", consumes = [MediaType.APPLICATION_JSON_VALUE], produces = [MediaType.TEXT_PLAIN_VALUE])
+    @PostMapping("/network/{network-id}/member", consumes = [MediaType.APPLICATION_JSON_VALUE], produces = [MediaType.TEXT_PLAIN_VALUE])
     private fun onBoardMember(
-        @RequestBody businessNetworkBean: Forms.BusinessNetwork
+        @RequestBody businessNetworkBean: Forms.BusinessNetwork,
+        @PathVariable("network-id") networkId: String
     ): CompletableFuture<String> {
 
-        require(businessNetworkBean.networkId.isNotBlank()) {"network id should not be empty"}
+        require(networkId.isNotBlank()) {"network id should not be empty"}
         require(businessNetworkBean.party != null) {"party name should not be empty"}
 
         logger.info("Request to onboard ${businessNetworkBean.party} on business network with " +
-                "id : ${businessNetworkBean.networkId} ")
+                "id : $networkId ")
 
         return proxy.startFlowDynamic(MembershipFlows.OnboardMyNetworkParticipant::class.java,
-            businessNetworkBean.networkId,
+            networkId,
             businessNetworkBean.party
         ).returnValue.toCompletableFuture()
 
     }
 
-    @PostMapping("/network/membership-request", consumes = [MediaType.APPLICATION_JSON_VALUE], produces = [MediaType.TEXT_PLAIN_VALUE])
+    @PostMapping("/network/{network-id}/membership-request", produces = [MediaType.TEXT_PLAIN_VALUE])
     private fun requestMembership(
-        @RequestBody businessNetworkBean: Forms.BusinessNetwork
+        @PathVariable("network-id") networkId: String
     ): CompletableFuture<String> {
 
-        require(businessNetworkBean.networkId.isNotBlank()) {"network id should not be empty"}
+        require(networkId.isNotBlank()) {"network id should not be empty"}
 
         val ourIdentity = proxy.nodeInfo().legalIdentities.single().name
 
         logger.info("Request for membership for party $ourIdentity on business network with " +
-                "id : ${businessNetworkBean.networkId} ")
+                "id : $networkId ")
 
-        return proxy.startFlowDynamic(MembershipFlows.RequestMyNetworkMembership::class.java,
-            businessNetworkBean.networkId
-        ).returnValue.toCompletableFuture()
+        return proxy.startFlowDynamic(MembershipFlows.RequestMyNetworkMembership::class.java, networkId)
+            .returnValue.toCompletableFuture()
 
     }
 
 
-    @PostMapping("/network/membership-request/approval", consumes = [MediaType.APPLICATION_JSON_VALUE], produces = [MediaType.TEXT_PLAIN_VALUE])
+    @PostMapping("/network/membership-request/{membership-id}/approval", produces = [MediaType.TEXT_PLAIN_VALUE])
     private fun approveMembership(
-        @RequestBody businessNetworkBean: Forms.BusinessNetwork
+        @PathVariable("membership-id") membershipId: String
     ): CompletableFuture<SignedTransaction> {
 
-        require(businessNetworkBean.membershipId.isNotBlank()) {"membership id should not be empty"}
+        require(membershipId.isNotBlank()) {"membership id should not be empty"}
 
-        logger.info("Approving membership with id ${businessNetworkBean.membershipId} on business network with " +
-                "id : ${businessNetworkBean.networkId} ")
+        logger.info("Approving membership with id $membershipId on business network")
 
-        return proxy.startFlowDynamic(MembershipFlows.ApproveMyNetworkMembership::class.java,
-            businessNetworkBean.membershipId
-        ).returnValue.toCompletableFuture()
+        return proxy.startFlowDynamic(MembershipFlows.ApproveMyNetworkMembership::class.java, membershipId)
+            .returnValue.toCompletableFuture()
 
     }
 
-    @PostMapping("/network/membership/role/data-admin", consumes = [MediaType.APPLICATION_JSON_VALUE], produces = [MediaType.TEXT_PLAIN_VALUE])
+    @PostMapping("/network/membership/{membership-id}/role/{role-name}", produces = [MediaType.TEXT_PLAIN_VALUE])
     private fun assignDataAdminRole(
-        @RequestBody businessNetworkBean: Forms.BusinessNetwork
+        @PathVariable("membership-id") membershipId: String,
+        @PathVariable("role-name") roleName: String
     ): CompletableFuture<SignedTransaction> {
 
-        require(businessNetworkBean.membershipId.isNotBlank()) {"membership id should not be empty"}
+        require(membershipId.isNotBlank()) {"membership id should not be empty"}
 
-        logger.info("Assigning data admin role to membership with id ${businessNetworkBean.membershipId}")
+        logger.info("Assigning data admin role to membership with id $membershipId")
 
-        return proxy.startFlowDynamic(MembershipFlows.AssignDataAdminRoleFlow::class.java,
-            businessNetworkBean.membershipId
-        ).returnValue.toCompletableFuture()
+        return when (roleName) {
+            "data-admin" -> proxy.startFlowDynamic(MembershipFlows.AssignDataAdminRoleFlow::class.java,
+                membershipId
+            ).returnValue.toCompletableFuture()
+            "member" -> proxy.startFlowDynamic(MembershipFlows.AssignNetworkMemberRoleFlow::class.java,
+                membershipId
+            ).returnValue.toCompletableFuture()
+            else -> {
+                throw IllegalArgumentException("role name should be either of the following : [data-admin, member]")
+            }
+        }
 
     }
 
 
-    @PostMapping("/network/group", consumes = [MediaType.APPLICATION_JSON_VALUE], produces = [MediaType.TEXT_PLAIN_VALUE])
+    @PostMapping("/network/{network-id}/group", consumes = [MediaType.APPLICATION_JSON_VALUE], produces = [MediaType.TEXT_PLAIN_VALUE])
     private fun createBNGroup(
-        @RequestBody businessNetworkBean: Forms.BusinessNetwork
+        @RequestBody businessNetworkBean: Forms.BusinessNetwork,
+        @PathVariable("network-id") networkId: String
     ): CompletableFuture<String> {
 
-        require(businessNetworkBean.networkId.isNotBlank()) {"network id should not be empty"}
+        require(networkId.isNotBlank()) {"network id should not be empty"}
         require(businessNetworkBean.groupName.isNotBlank()) {"group name should not be empty"}
         require(businessNetworkBean.membershipIds.isNotEmpty()) {"membership ids should not be empty"}
 
         logger.info("Creating Group ${businessNetworkBean.groupName} " +
-                "on network ${businessNetworkBean.networkId} " +
+                "on network $networkId " +
                 "with membership ids ${businessNetworkBean.membershipIds.joinToString()}")
 
         return proxy.startFlowDynamic(MembershipFlows.CreateMyGroupFlow::class.java,
-            businessNetworkBean.networkId,
+            networkId,
             businessNetworkBean.groupName,
             businessNetworkBean.membershipIds.toList()
         ).returnValue.toCompletableFuture()
@@ -160,7 +169,7 @@ class GroupManagementController() {
 
 
 
-    @PostMapping("/group/data/schema", consumes = [MediaType.APPLICATION_JSON_VALUE], produces = [MediaType.TEXT_PLAIN_VALUE])
+    @PostMapping("/groups/data/schema", consumes = [MediaType.APPLICATION_JSON_VALUE], produces = [MediaType.TEXT_PLAIN_VALUE])
     private fun createGroupAwareSchema(
         @RequestBody groupAwareSchema: Forms.GroupAwareSchema
     ): CompletableFuture<String> {
@@ -173,6 +182,66 @@ class GroupManagementController() {
             groupAwareSchema.schema
         ).returnValue.toCompletableFuture()
     }
+
+
+    @PostMapping("/groups/data/{association-id}/schema/{schema-id}/kv",
+        consumes = [MediaType.APPLICATION_JSON_VALUE],
+        produces = [MediaType.TEXT_PLAIN_VALUE])
+
+    private fun createGroupAwareSchemaBackedKVData(
+        @RequestBody groupAwareSchema: Forms.GroupAwareSchemaBackedKV,
+        @PathVariable("schema-id") schemaId: String,
+        @PathVariable("association-id") groupDataAssociationId: String
+    ): CompletableFuture<String> {
+
+
+        require(groupDataAssociationId.isNotBlank()) {"GroupDataAssociation id must be present"}
+        require(schemaId.isNotBlank()) {"Schema ID should be present"}
+        require(groupAwareSchema.data.isNotEmpty()) {"KV data should be present"}
+
+        logger.info("Request to KV backed by Group Backed Schema with ID " +
+                "name : $schemaId association " +
+                "with Group Data identifier $groupDataAssociationId")
+
+        return proxy.startFlowDynamic(ManageGroupAwareSchemaBackedKVData.Initiator::class.java,
+            groupDataAssociationId,
+            null,
+            schemaId,
+            groupAwareSchema.data,
+            ManageGroupAwareSchemaBackedKVData.Operation.CREATE
+        ).returnValue.toCompletableFuture()
+    }
+
+    @PutMapping("/groups/data/{association-id}/schema/{schema-id}/kv/{kv-id}",
+        consumes = [MediaType.APPLICATION_JSON_VALUE],
+        produces = [MediaType.TEXT_PLAIN_VALUE])
+
+    private fun updateGroupAwareSchemaBackedKVData(
+        @RequestBody groupAwareSchema: Forms.GroupAwareSchemaBackedKV,
+        @PathVariable("schema-id") schemaId: String,
+        @PathVariable("kv-id") kvId: String,
+        @PathVariable("association-id") groupDataAssociationId: String
+    ): CompletableFuture<String> {
+
+
+        require(groupDataAssociationId.isNotBlank()) {"GroupDataAssociation id must be present"}
+        require(kvId.isNotBlank()) {"KV id must be present"}
+        require(schemaId.isNotBlank()) {"Schema ID should be present"}
+        require(groupAwareSchema.data.isNotEmpty()) {"KV data should be present"}
+
+        logger.info("Request to KV backed by Group Backed Schema with ID " +
+                "name : $schemaId association " +
+                "with Group Data identifier $groupDataAssociationId")
+
+        return proxy.startFlowDynamic(ManageGroupAwareSchemaBackedKVData.Initiator::class.java,
+            groupDataAssociationId,
+            kvId,
+            schemaId,
+            groupAwareSchema.data,
+            ManageGroupAwareSchemaBackedKVData.Operation.UPDATE
+        ).returnValue.toCompletableFuture()
+    }
+
 
 
     @PostMapping(value = ["switch-party/{party}"], produces = [MediaType.TEXT_PLAIN_VALUE])

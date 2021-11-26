@@ -31,3 +31,15 @@ class SchemaBackedKVContract : ExtensibleWorkflowContract {
     }
 
 }
+
+
+class SchemaContract : Contract {
+
+    override fun verify(tx: LedgerTransaction) {
+
+    }
+
+    interface Commands : CommandData {
+        class CreateSchema : TypeOnlyCommandData(), Commands
+    }
+}

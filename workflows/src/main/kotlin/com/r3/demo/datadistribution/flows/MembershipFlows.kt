@@ -42,9 +42,13 @@ object MembershipFlows {
 
         @Suspendable
         override fun call(): SignedTransaction {
+
+            val existingRoles =
+                serviceHub.cordaService(BNService::class.java).getMembership(UniqueIdentifier.fromString(membershipId))?.state?.data?.roles?: mutableSetOf()
+
             return subFlow(ModifyRolesFlow(
                 membershipId = UniqueIdentifier.fromString(membershipId),
-                roles = setOf(DataAdminRole()),
+                roles = existingRoles + DataAdminRole(),
                 notary = serviceHub.networkMapCache.getNotary(CordaX500Name.parse(DEFAULT_NOTARY))))
         }
     }
@@ -59,11 +63,16 @@ object MembershipFlows {
 
         @Suspendable
         override fun call(): SignedTransaction {
+
+            val existingRoles =
+                serviceHub.cordaService(BNService::class.java).getMembership(UniqueIdentifier.fromString(membershipId))?.state?.data?.roles?: mutableSetOf()
+
             return subFlow(ModifyRolesFlow(
                 membershipId = UniqueIdentifier.fromString(membershipId),
-                roles = setOf(NetworkMemberRole()),
+                roles = existingRoles + NetworkMemberRole(),
                 notary = serviceHub.networkMapCache.getNotary(CordaX500Name.parse(DEFAULT_NOTARY))))
         }
+
     }
 
 

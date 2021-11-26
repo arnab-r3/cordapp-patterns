@@ -1,7 +1,6 @@
 package com.template.forms
 
 import com.r3.custom.Schema
-import com.r3.demo.extensibleworkflows.ManageGroupAwareSchemaBackedKVData
 import net.corda.core.identity.Party
 
 
@@ -28,12 +27,7 @@ class Forms {
     }
 
     class GroupAwareSchemaBackedKV {
-        var groupDataAssociationId: String = ""
-        var schemaBackedKVId: String = ""
-        var schemaId: String = ""
         var data: Map<String, String> = mapOf()
-        var operation: ManageGroupAwareSchemaBackedKVData.Operation =
-            ManageGroupAwareSchemaBackedKVData.Operation.CREATE
     }
 
 }

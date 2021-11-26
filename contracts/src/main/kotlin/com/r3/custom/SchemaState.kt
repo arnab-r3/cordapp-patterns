@@ -2,7 +2,7 @@ package com.r3.custom
 
 import net.corda.core.contracts.BelongsToContract
 import net.corda.core.contracts.ContractState
-import net.corda.core.contracts.StaticPointer
+import net.corda.core.contracts.StatePointer
 import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
 import net.corda.core.node.ServiceHub
@@ -11,6 +11,7 @@ import net.corda.core.transactions.LedgerTransaction
 import java.util.*
 
 @CordaSerializable
+@BelongsToContract(SchemaContract::class)
 class SchemaState(
     val schema: Schema,
     override val participants: List<Party>
@@ -39,7 +40,7 @@ class SchemaState(
 data class SchemaBackedKVState(
     val id: UUID = UUID.randomUUID(),
     val kvPairs: Map<String, String>,
-    val schemaStatePointer: StaticPointer<SchemaState>,
+    val schemaStatePointer: StatePointer<SchemaState>,
     override val participants: List<AbstractParty>
     ) : ContractState{
 
@@ -49,7 +50,7 @@ data class SchemaBackedKVState(
      * @throws IllegalArgumentException if validation fails
      */
     @Suppress("unused")
-    fun validateSchema(eventName: String? = null, ledgerTransaction: LedgerTransaction?, serviceHub: ServiceHub?) {
+    fun validateSchema(eventName: String? = null, ledgerTransaction: LedgerTransaction? = null, serviceHub: ServiceHub? = null) {
 
 
         val schemaStateAndRef = ledgerTransaction?.let { schemaStatePointer.resolve(ledgerTransaction) }?:

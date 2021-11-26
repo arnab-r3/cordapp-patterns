@@ -2,7 +2,9 @@ package com.r3.demo.extensibleworkflows
 
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.custom.Schema
+import com.r3.custom.SchemaContract
 import com.r3.custom.SchemaState
+import com.r3.demo.common.canManageData
 import com.r3.demo.datadistribution.flows.GroupDataAssociationFlows
 import com.r3.demo.datadistribution.flows.GroupDataManagementFlow
 import com.r3.demo.datadistribution.flows.MembershipBroadcastFlows
@@ -52,11 +54,15 @@ object CreateGroupAwareSchema {
             // if the groupIds are not empty then populate the participants with the Data Distribution permissions,
             // otherwise add ourself
             progressTracker.currentStep = FETCHING_GROUP_DETAILS
-            val groupDataParticipants = getGroupsParticipants(groupIds)
+            val partiesWithDataManagementRights = getGroupsParticipants(groupIds) {
+                it.canManageData()
+            }
+
+            val signingKeys = partiesWithDataManagementRights.map { it.owningKey }
 
             progressTracker.currentStep = BUILDING_THE_TX
 
-            val outputSchemaState = SchemaState(schema, groupDataParticipants.toList())
+            val outputSchemaState = SchemaState(schema, partiesWithDataManagementRights.toList())
 
             // associate some metadata to the GroupDataAssociationState
             val metaDataMap = mapOf(
@@ -67,6 +73,7 @@ object CreateGroupAwareSchema {
 
             val txBuilder = TransactionBuilder(getDefaultNotary(serviceHub))
                 .addOutputState(outputSchemaState)
+                .addCommand(SchemaContract.Commands.CreateSchema(), signingKeys)
 
             progressTracker.currentStep = VERIFYING_THE_TX
             txBuilder.verify(serviceHub)
@@ -76,8 +83,8 @@ object CreateGroupAwareSchema {
             subFlow(CollectSignaturesAndFinalizeTransactionFlow(
                 builder = txBuilder,
                 myOptionalKeys = null,
-                signers = groupDataParticipants,
-                participants = groupDataParticipants
+                signers = partiesWithDataManagementRights,
+                participants = partiesWithDataManagementRights
             ))
 
             progressTracker.currentStep = DISTRIBUTING_GROUP_DATA
