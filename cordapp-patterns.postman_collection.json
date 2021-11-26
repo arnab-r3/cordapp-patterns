@@ -1,0 +1,328 @@
+{
+	"info": {
+		"_postman_id": "88f00d6a-ccf4-4fda-890c-68da0a452dd2",
+		"name": "cordapp-patterns",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "custom-schema",
+			"item": [
+				{
+					"name": "node info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "localhost:8080/api/node-info",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"node-info"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "switch-party",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "localhost:8080/api/switch-party/PartyA",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"switch-party",
+								"PartyA"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create network",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"groupName\" : \"defaultGroup\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/network",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"network"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "onboard member",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"party\": \"PartyC\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/network/9e14320e-fc39-47ed-8715-50058bdd63b3/member",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"network",
+								"9e14320e-fc39-47ed-8715-50058bdd63b3",
+								"member"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "membership-request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/network/2bbf9f11-4ebd-406c-8e3b-53744dfbb0f6/membership-request",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"network",
+								"2bbf9f11-4ebd-406c-8e3b-53744dfbb0f6",
+								"membership-request"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "membership-request-approval",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"membershipId\" : \"34d29933-aea6-453a-99fc-2fae897761fc\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/network/membership-request/9f211b0c-e394-4b6f-b958-78e430fd30ff/approval",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"network",
+								"membership-request",
+								"9f211b0c-e394-4b6f-b958-78e430fd30ff",
+								"approval"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "view membership states",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "localhost:8080/api/network/memberships",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"network",
+								"memberships"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create group",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n        \"groupName\" : \"new data group\",\n    \"membershipIds\" : [\"94bca835-4d87-4e6e-863c-c29d70bf6b09\",\n                        \"6fe90221-5cba-4c1e-a70e-6c52a0a5fe91\",\n    \"9fa691b5-ca0e-4e6b-9219-1b15ab4e1a28\"]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/network/9e14320e-fc39-47ed-8715-50058bdd63b3/group",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"network",
+								"9e14320e-fc39-47ed-8715-50058bdd63b3",
+								"group"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create schema",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"groupIds\": [\"2efc2d63-b4f5-43ae-a40f-1e62f4766486\"],\n    \"schema\": {\n        \"name\" : \"third schema\",\n        \"description\" : \"desc of third schema\",\n        \"version\": \"v1\",\n        \"attributes\" : [\n            {\n                \"name\" : \"firstAttribute\",\n                \"dataType\" : \"INTEGER\",\n                \"mandatory\" : true,\n                \"regex\" : \"[0-9]{3,10}\",\n                \"associatedEvents\" : [\"Create\"]\n            }\n        ],\n        \"parties\" : [\"O=PartyA, L=London, C=GB\", \"O=PartyB, L=London, C=GB\", \"O=PartyC, L=London, C=GB\"]\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/groups/data/schema",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"groups",
+								"data",
+								"schema"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "assign data-admin role",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/network/membership/94bca835-4d87-4e6e-863c-c29d70bf6b09/role/data-admin",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"network",
+								"membership",
+								"94bca835-4d87-4e6e-863c-c29d70bf6b09",
+								"role",
+								"data-admin"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create data backed by schema",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"data\": {\n        \"firstAttribute\": \"126\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/groups/data/50a6c567-d2d2-4900-b551-69cc018a694f/schema/24e0789b-066d-422a-9fc0-a8f13b3d3bd7/kv",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"groups",
+								"data",
+								"50a6c567-d2d2-4900-b551-69cc018a694f",
+								"schema",
+								"24e0789b-066d-422a-9fc0-a8f13b3d3bd7",
+								"kv"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

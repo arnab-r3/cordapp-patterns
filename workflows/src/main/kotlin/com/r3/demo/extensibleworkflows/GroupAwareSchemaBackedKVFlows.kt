@@ -20,7 +20,6 @@ import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
-import java.util.*
 
 object ManageGroupAwareSchemaBackedKVData {
 
@@ -74,12 +73,18 @@ object ManageGroupAwareSchemaBackedKVData {
 
 
         private fun getSchemaBackedKVState(schemaBackedKVId: String): StateAndRef<SchemaBackedKVState> {
-            val linearStateQueryCriteria = QueryCriteria.LinearStateQueryCriteria()
-                .withUuid(listOf(UUID.fromString(schemaBackedKVId)))
-                .withStatus(Vault.StateStatus.UNCONSUMED)
+            val vaultQueryCriteria = QueryCriteria
+                .VaultQueryCriteria()
+                .withContractStateTypes(setOf(SchemaBackedKVState::class.java))
                 .withRelevancyStatus(Vault.RelevancyStatus.ALL)
+                .withStatus(Vault.StateStatus.UNCONSUMED)
 
-            val queryResult = serviceHub.vaultService.queryBy<SchemaBackedKVState>(linearStateQueryCriteria).states
+
+            val queryResult = serviceHub
+                .vaultService
+                .queryBy<SchemaBackedKVState>(vaultQueryCriteria)
+                .states.filter { it.state.data.id.toString() == schemaBackedKVId }
+
             require(queryResult.size == 1) { "Could not find SchemaBackedKVState with id: $schemaBackedKVId" }
             return queryResult.single()
         }
@@ -92,14 +97,12 @@ object ManageGroupAwareSchemaBackedKVData {
             progressTracker.currentStep = FETCHING_GROUP_DETAILS
             val groupDataState = getGroupDataState(groupDataAssociationStateIdentifier)
 
+            // find the schema state committed with the transaction
             progressTracker.currentStep = VALIDATING_SCHEMA_LINKAGE
             val referredSchemaState = getGroupDataAssociatedStates(groupDataAssociationStateIdentifier)
-                ?.let { associatedStateRefs ->
-                    associatedStateRefs.single { stateRef ->
-                        stateRef.state.data is SchemaState
-                                && schemaId == (stateRef.state.data as SchemaState).schema.id.toString()
-                    }
-                } ?: flowFail("Cannot find a schema with id: $schemaId committed " +
+            {
+                it is SchemaState && it.schema.id.toString() == schemaId
+            }?.single() ?: flowFail("Cannot find a schema with id: $schemaId committed " +
                     "in a transaction with GroupDataAssociationState with id $groupDataAssociationStateIdentifier")
 
             progressTracker.currentStep = BUILDING_THE_TX

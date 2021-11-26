@@ -91,7 +91,7 @@ abstract class GroupDataManagementFlow<T> : MembershipManagementFlow<T>() {
      * Fetch associated states that were committed in the same transaction as the [GroupDataAssociationState]
      * @param groupDataAssociationStateIdentifier stored as [UniqueIdentifier]
      */
-    fun getGroupDataAssociatedStates(groupDataAssociationStateIdentifier: String): List<StateAndRef<ContractState>>? {
+    fun getGroupDataAssociatedStates(groupDataAssociationStateIdentifier: String, filter: (ContractState) -> Boolean = {true}): List<StateAndRef<ContractState>>? {
         val groupDataState = getGroupDataState(groupDataAssociationStateIdentifier)
 
 //            return serviceHub.validatedTransactions.getTransaction(groupDataState.ref.txhash)?.coreTransaction?.let {
@@ -100,7 +100,7 @@ abstract class GroupDataManagementFlow<T> : MembershipManagementFlow<T>() {
 //                    "This is likely because the latest transaction has not been shared with this node")
 
         return serviceHub.validatedTransactions.getTransaction(groupDataState.ref.txhash)
-            ?.coreTransaction?.filterOutRefs { it !is GroupDataAssociationState }
+            ?.coreTransaction?.filterOutRefs { it !is GroupDataAssociationState && filter(it) }
 
     }
 }
