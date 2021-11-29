@@ -1,7 +1,7 @@
 package com.template.webserver
 
 import com.r3.demo.datadistribution.flows.MembershipFlows
-import com.r3.demo.extensibleworkflows.CreateGroupAwareSchema
+import com.r3.demo.extensibleworkflows.CreateGroupDataAssociationAndLinkSchema
 import com.r3.demo.extensibleworkflows.ManageGroupAwareSchemaBackedKVData
 import com.template.forms.Forms
 import net.corda.bn.states.MembershipState
@@ -177,7 +177,7 @@ class GroupManagementController {
                 "name : ${groupAwareSchema.schema.name} with " +
                 "groups ${groupAwareSchema.groupIds.joinToString()}}")
 
-        return proxy.startFlowDynamic(CreateGroupAwareSchema.Initiator::class.java,
+        return proxy.startFlowDynamic(CreateGroupDataAssociationAndLinkSchema.Initiator::class.java,
             groupAwareSchema.groupIds,
             groupAwareSchema.schema
         ).returnValue.toCompletableFuture()

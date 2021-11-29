@@ -5,6 +5,8 @@ import com.r3.demo.common.canDistributeData
 import net.corda.bn.flows.BNService
 import net.corda.bn.flows.MembershipManagementFlow
 import net.corda.bn.states.GroupState
+import net.corda.core.contracts.ContractState
+import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.identity.Party
@@ -73,7 +75,8 @@ object MembershipBroadcastFlows {
     @Suppress("unused")
     @InitiatingFlow
     class DistributeTransactionsToGroupFlow(
-        private val signedTransactions: List<SignedTransaction>,
+        private val signedTransactions: List<SignedTransaction> = listOf(),
+        private val stateAndRefs : Set<StateAndRef<ContractState>> = setOf(),
         private val groupId: String,
         private val partyFilterCriteria: (Party) -> Boolean = { true }
     ) : MembershipManagementFlow<Unit>() {
@@ -108,6 +111,9 @@ object MembershipBroadcastFlows {
 
                 serviceHub.cordaService(DistributionService::class.java)
                     .distributeTransactionsParallel(signedTransactions, recipientParties)
+
+                serviceHub.cordaService(DistributionService::class.java)
+                    .distributeStateAndRefsParallel(stateAndRefs, recipientParties)
             }
         }
     }

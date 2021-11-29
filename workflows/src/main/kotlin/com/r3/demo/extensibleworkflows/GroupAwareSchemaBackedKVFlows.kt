@@ -25,7 +25,7 @@ object ManageGroupAwareSchemaBackedKVData {
 
     @CordaSerializable
     enum class Operation {
-        CREATE, UPDATE
+        CREATE, UPDATE, GET
     }
 
     /**
@@ -73,6 +73,8 @@ object ManageGroupAwareSchemaBackedKVData {
 
 
         private fun getSchemaBackedKVState(schemaBackedKVId: String): StateAndRef<SchemaBackedKVState> {
+
+            // fetch the schema state and ensure that it's not deleted
             val vaultQueryCriteria = QueryCriteria
                 .VaultQueryCriteria()
                 .withContractStateTypes(setOf(SchemaBackedKVState::class.java))
@@ -102,8 +104,7 @@ object ManageGroupAwareSchemaBackedKVData {
             val referredSchemaState = getGroupDataAssociatedStates(groupDataAssociationStateIdentifier)
             {
                 it is SchemaState && it.schema.id.toString() == schemaId
-            }?.single() ?: flowFail("Cannot find a schema with id: $schemaId committed " +
-                    "in a transaction with GroupDataAssociationState with id $groupDataAssociationStateIdentifier")
+            }.single()
 
             progressTracker.currentStep = BUILDING_THE_TX
             val participants = groupDataState.state.data.participants
@@ -142,6 +143,9 @@ object ManageGroupAwareSchemaBackedKVData {
                             .addOutputState(outputState)
                             .addReferenceState(referredSchemaState.referenced())
                     } ?: flowFail("Update operation must include the schema backed KV id to be updated")
+                }
+                Operation.GET -> {
+                     TODO("Not implemented")
                 }
             }
 

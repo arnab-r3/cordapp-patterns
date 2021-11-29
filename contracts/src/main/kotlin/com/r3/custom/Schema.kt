@@ -25,7 +25,8 @@ data class Schema(
     val version: String,
     val description: String?,
     val attributes: Set<Attribute>,
-    val parties: List<CordaX500Name> // defines the list of participants with whom the schema should be distributed
+    val parties: List<CordaX500Name> // defines the list of parties who are the maintainers of this schema,
+    // although it can be distributed to anyone
 )
 
 

@@ -4,45 +4,46 @@ import co.paralleluniverse.fibers.Suspendable
 import com.r3.custom.Schema
 import com.r3.custom.SchemaContract
 import com.r3.custom.SchemaState
-import com.r3.demo.common.canManageData
 import com.r3.demo.datadistribution.flows.GroupDataAssociationFlows
 import com.r3.demo.datadistribution.flows.GroupDataManagementFlow
-import com.r3.demo.datadistribution.flows.MembershipBroadcastFlows
+import com.r3.demo.generic.flowFail
 import com.r3.demo.generic.getDefaultNotary
 import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
+import net.corda.core.contracts.StatePointer
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.flows.StartableByRPC
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 
-object CreateGroupAwareSchema {
+object CreateGroupDataAssociationAndLinkSchema {
 
     @InitiatingFlow
     @StartableByRPC
     class Initiator(
-        val groupIds: Set<String>,
-        val schema: Schema
+        private val groupIds: Set<String>,
+        private val schema: Schema
     ) : GroupDataManagementFlow<String>() {
 
         companion object {
             object FETCHING_GROUP_DETAILS : ProgressTracker.Step("Fetching Group Details")
-            object BUILDING_THE_TX : ProgressTracker.Step("Building transaction.")
-            object VERIFYING_THE_TX : ProgressTracker.Step("Verifying transaction.")
-            object COLLECTING_SIGS_AND_FINALITY : ProgressTracker.Step("Collecting Signatures & Executing Finality") {
+            object BUILDING_THE_SCHEMA_TX : ProgressTracker.Step("Building the schema transaction.")
+            object VERIFYING_THE_SCHEMA_TX : ProgressTracker.Step("Verifying schema transaction.")
+
+            object COLLECTING_SIGS_AND_FINALITY_FOR_SCHEMA_TX : ProgressTracker.Step("Collecting Signatures & Executing Finality for Schema Transaction") {
                 override fun childProgressTracker() = CollectSignaturesAndFinalizeTransactionFlow.tracker()
             }
 
-            object DISTRIBUTING_GROUP_DATA :
-                ProgressTracker.Step("Distributing Group Association data to other participants") {
+            object ASSOCIATING_SCHEMA_WITH_GROUPS :
+                ProgressTracker.Step("Associating schema with group metadata") {
                 override fun childProgressTracker(): ProgressTracker =
-                    MembershipBroadcastFlows.DistributeTransactionsToGroupFlow.tracker()
+                    GroupDataAssociationFlows.CreateNewAssociationState.tracker()
             }
 
             fun tracker() = ProgressTracker(FETCHING_GROUP_DETAILS,
-                BUILDING_THE_TX,
-                VERIFYING_THE_TX,
-                COLLECTING_SIGS_AND_FINALITY,
-                DISTRIBUTING_GROUP_DATA)
+                BUILDING_THE_SCHEMA_TX,
+                VERIFYING_THE_SCHEMA_TX,
+                COLLECTING_SIGS_AND_FINALITY_FOR_SCHEMA_TX,
+                ASSOCIATING_SCHEMA_WITH_GROUPS)
         }
 
         override val progressTracker = tracker()
@@ -54,15 +55,19 @@ object CreateGroupAwareSchema {
             // if the groupIds are not empty then populate the participants with the Data Distribution permissions,
             // otherwise add ourself
             progressTracker.currentStep = FETCHING_GROUP_DETAILS
-            val partiesWithDataManagementRights = getGroupsParticipants(groupIds) {
-                it.canManageData()
-            }
+            val groupsParticipants = getGroupsParticipants(groupIds)
 
-            val signingKeys = partiesWithDataManagementRights.map { it.owningKey }
+            val maintainersFromSchemaMetadata = SchemaState.getParticipantsFromSchema(serviceHub, schema)
 
-            progressTracker.currentStep = BUILDING_THE_TX
+            // check if all the maintainers are inside the group, containsAll is so confusing, ughh!
+            if (!groupsParticipants.containsAll(maintainersFromSchemaMetadata))
+                flowFail("Schema cannot be maintained by parties who are not in either of the groups $groupIds")
 
-            val outputSchemaState = SchemaState(schema, partiesWithDataManagementRights.toList())
+
+            val signingKeys = maintainersFromSchemaMetadata.map { it.owningKey }
+
+            progressTracker.currentStep = BUILDING_THE_SCHEMA_TX
+            val outputSchemaState = SchemaState(schema, maintainersFromSchemaMetadata)
 
             // associate some metadata to the GroupDataAssociationState
             val metaDataMap = mapOf(
@@ -75,25 +80,36 @@ object CreateGroupAwareSchema {
                 .addOutputState(outputSchemaState)
                 .addCommand(SchemaContract.Commands.CreateSchema(), signingKeys)
 
-            progressTracker.currentStep = VERIFYING_THE_TX
+            progressTracker.currentStep = VERIFYING_THE_SCHEMA_TX
             txBuilder.verify(serviceHub)
 
-            progressTracker.currentStep = COLLECTING_SIGS_AND_FINALITY
-
-            subFlow(CollectSignaturesAndFinalizeTransactionFlow(
+            progressTracker.currentStep = COLLECTING_SIGS_AND_FINALITY_FOR_SCHEMA_TX
+            val signedSchemaTx = subFlow(CollectSignaturesAndFinalizeTransactionFlow(
                 builder = txBuilder,
-                myOptionalKeys = null,
-                signers = partiesWithDataManagementRights,
-                participants = partiesWithDataManagementRights
+                signers = maintainersFromSchemaMetadata.toSet(),
+                participants = maintainersFromSchemaMetadata.toSet()
             ))
 
-            progressTracker.currentStep = DISTRIBUTING_GROUP_DATA
-            val subFlowResponse = subFlow(GroupDataAssociationFlows.CreateDataFlow(txBuilder, metaDataMap, groupIds))
+
+            progressTracker.currentStep = ASSOCIATING_SCHEMA_WITH_GROUPS
+
+            val committedSchemaTxRef =
+                signedSchemaTx.toLedgerTransaction(serviceHub, true)
+
+                .findOutRef<SchemaState> { it.schema.id == outputSchemaState.id }
+            val staticPointer = StatePointer.staticPointer(committedSchemaTxRef)
+
+
+            val subFlowResponse = subFlow(GroupDataAssociationFlows.CreateNewAssociationState(
+                setOf(staticPointer), metaDataMap, groupIds)
+            )
 
             return "Created Schema with id ${schema.id} and following are the group association details.\n" + subFlowResponse
 
         }
 
     }
+
+    // TODO add provision to delete schema
 
 }

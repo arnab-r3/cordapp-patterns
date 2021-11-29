@@ -14,17 +14,19 @@ import java.util.*
 @BelongsToContract(SchemaContract::class)
 class SchemaState(
     val schema: Schema,
-    override val participants: List<Party>
+    override val participants: List<Party> // defines the list of participants who will be the maintainers of this schema
 ) : ContractState {
 
     val id: UUID
         get() = schema.id
 
-    fun setParticipantsFromSchema(serviceHub: ServiceHub) =
-        schema.parties.map {
-            serviceHub.identityService.wellKnownPartyFromX500Name(it)
-        }
-
+    companion object {
+        fun getParticipantsFromSchema(serviceHub: ServiceHub, schema: Schema) =
+            schema.parties.map {
+                serviceHub.identityService.wellKnownPartyFromX500Name(it)
+                    ?:throw IllegalArgumentException("Cannot find Party representation with name $it")
+            }
+    }
 }
 
 /**
@@ -42,7 +44,7 @@ data class SchemaBackedKVState(
     val kvPairs: Map<String, String>,
     val schemaStatePointer: StatePointer<SchemaState>,
     override val participants: List<AbstractParty>
-    ) : ContractState{
+) : ContractState {
 
     /**
      * Validate the KV against the backing schema
@@ -50,12 +52,16 @@ data class SchemaBackedKVState(
      * @throws IllegalArgumentException if validation fails
      */
     @Suppress("unused")
-    fun validateSchema(eventName: String? = null, ledgerTransaction: LedgerTransaction? = null, serviceHub: ServiceHub? = null) {
+    fun validateSchema(
+        eventName: String? = null,
+        ledgerTransaction: LedgerTransaction? = null,
+        serviceHub: ServiceHub? = null
+    ) {
 
 
-        val schemaStateAndRef = ledgerTransaction?.let { schemaStatePointer.resolve(ledgerTransaction) }?:
-        serviceHub?.let { schemaStatePointer.resolve(serviceHub) }?:
-        throw java.lang.IllegalArgumentException("At least one of ledger transaction or service hub reference should be present while validating schema")
+        val schemaStateAndRef = ledgerTransaction?.let { schemaStatePointer.resolve(ledgerTransaction) }
+            ?: serviceHub?.let { schemaStatePointer.resolve(serviceHub) }
+            ?: throw java.lang.IllegalArgumentException("At least one of ledger transaction or service hub reference should be present while validating schema")
 
         val schema = schemaStateAndRef.state.data.schema
 
