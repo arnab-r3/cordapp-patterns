@@ -2,7 +2,7 @@ package com.r3.custom
 
 import net.corda.core.contracts.BelongsToContract
 import net.corda.core.contracts.ContractState
-import net.corda.core.contracts.StatePointer
+import net.corda.core.contracts.StaticPointer
 import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
 import net.corda.core.node.ServiceHub
@@ -42,7 +42,7 @@ class SchemaState(
 data class SchemaBackedKVState(
     val id: UUID = UUID.randomUUID(),
     val kvPairs: Map<String, String>,
-    val schemaStatePointer: StatePointer<SchemaState>,
+    val schemaStatePointer: StaticPointer<SchemaState>, // ensure we dont fall for schema updates
     override val participants: List<AbstractParty>
 ) : ContractState {
 
