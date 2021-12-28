@@ -20,6 +20,8 @@ dependencies {
 
     cordapp("net.corda.bn:business-networks-contracts:$corda_bn_extension_version")
 
+    cordaCompile "$tokens_release_group:tokens-contracts:$tokens_release_version"
+
 
     testCompile project(":testing")
 

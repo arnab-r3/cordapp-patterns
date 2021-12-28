@@ -27,6 +27,10 @@ buildscript { //properties that you need to build the project
         //CI
         confidential_id_release_group = "com.r3.corda.lib.ci"
         confidential_id_release_version = "1.0"
+
+        //tokens sdk
+        tokens_release_version = '1.2'
+        tokens_release_group = 'com.r3.corda.lib.tokens'
     }
 
     repositories {
@@ -53,10 +57,25 @@ allprojects { //Properties that you need to compile your project (The applicatio
         mavenLocal()
         jcenter()
         mavenCentral()
-        maven { url 'https://software.r3.com/artifactory/corda' }
+//        maven { url 'https://software.r3.com/artifactory/corda' }
+        maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda' }
+
         maven { url 'https://jitpack.io' }
         //maven { url 'https://software.r3.com/artifactory/corda-lib-dev' }
-        maven { url 'https://software.r3.com/artifactory/corda-lib' }
+//        maven { url 'https://software.r3.com/artifactory/corda-lib' }
+//        maven { url 'https://software.r3.com/artifactory/corda-lib-dev' }
+        maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-lib' }
+        maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-lib-dev' }
+//
+//        maven { url 'https://repo.gradle.org/gradle/libs-releases' }
+//        maven { url 'https://software.r3.com/artifactory/corda-releases' }
+//        maven { url 'https://software.r3.com/artifactory/corda-enterprise-for-customers'
+//            credentials {
+//                username = ""
+//                password = "<software.r3.com - token>"
+//            }
+//        }
+
     }
 
     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
@@ -106,6 +125,10 @@ dependencies {
     cordapp "$accounts_release_group:accounts-workflows:$accounts_release_version"
     cordapp("net.corda.bn:business-networks-contracts:$corda_bn_extension_version")
     cordapp("net.corda.bn:business-networks-workflows:$corda_bn_extension_version")
+
+    // tokens sdk dependencies
+    cordapp "$tokens_release_group:tokens-contracts:$tokens_release_version"
+    cordapp "$tokens_release_group:tokens-workflows:$tokens_release_version"
 }
 
 //Task to deploy the nodes in order to bootstrap a network
@@ -125,19 +148,40 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
         cordapp("$accounts_release_group:accounts-workflows:$accounts_release_version")
         cordapp("net.corda.bn:business-networks-contracts:$corda_bn_extension_version")
         cordapp("net.corda.bn:business-networks-workflows:$corda_bn_extension_version")
+
+        // add tokens sdk
+        cordapp("$tokens_release_group:tokens-contracts:$tokens_release_version")
+        cordapp("$tokens_release_group:tokens-workflows:$tokens_release_version")
+//        cordapp("$tokens_release_group:tokens-money:$tokens_release_version")
+//        cordapp("$tokens_release_group:tokens-selection:$tokens_release_version")
+
         cordapp project(':contracts')
-        cordapp project(':workflows')
+        cordapp project(':workflows'){
+            config '''
+                inr.notary=NotaryA,L=London,C=GB
+                kitty.notary=NotaryB,L=London,C=GB
+            '''
+        }
         runSchemaMigration = true //This configuration is for any CorDapps with custom schema, We will leave this as true to avoid
         //problems for developers who are not familiar with Corda. If you are not using custom schemas, you can change
         //it to false for quicker project compiling time.
     }
     node {
-        name "O=Notary,L=London,C=GB"
+        name "O=NotaryA,L=London,C=GB"
         notary = [validating : false]
         p2pPort 10002
         rpcSettings {
             address("localhost:10003")
             adminAddress("localhost:10043")
+        }
+    }
+    node {
+        name "O=NotaryB,L=London,C=GB"
+        notary = [validating : false]
+        p2pPort 11002
+        rpcSettings {
+            address("localhost:11003")
+            adminAddress("localhost:11043")
         }
     }
     node {
