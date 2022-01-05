@@ -1,9 +1,9 @@
 package com.r3.demo.extensibleworkflows
 
 import co.paralleluniverse.fibers.Suspendable
-import com.r3.custom.SchemaBackedKVContract
-import com.r3.custom.SchemaBackedKVState
-import com.r3.custom.SchemaState
+import com.r3.demo.custom.SchemaBackedKVContract
+import com.r3.demo.custom.SchemaBackedKVState
+import com.r3.demo.custom.SchemaState
 import com.r3.demo.datadistribution.contracts.GroupDataAssociationState
 import com.r3.demo.datadistribution.flows.GroupDataManagementFlow
 import com.r3.demo.datadistribution.flows.MembershipBroadcastFlows

@@ -1,4 +1,4 @@
-package com.r3.demo.crossnotaryswap.utils
+package com.r3.demo.crossnotaryswap.flows.utils
 
 import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.contracts.utilities.amount
@@ -23,3 +23,4 @@ class CurrencyUtils {
 
 val INRTokenType = CurrencyUtils.getInstance("INR")
 val Int.INR : Amount<TokenType> get() = amount(this, INRTokenType)
+val Long.INR : Amount<TokenType> get() = amount(this, INRTokenType)

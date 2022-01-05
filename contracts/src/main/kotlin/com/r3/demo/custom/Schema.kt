@@ -1,6 +1,6 @@
-package com.r3.custom
+package com.r3.demo.custom
 
-import com.r3.custom.DataType.*
+import com.r3.demo.custom.DataType.*
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.serialization.CordaSerializable
 import java.time.Duration

@@ -1,4 +1,4 @@
-package com.r3.custom
+package com.r3.demo.custom
 
 import net.corda.core.contracts.*
 import net.corda.core.transactions.LedgerTransaction

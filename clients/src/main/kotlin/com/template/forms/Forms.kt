@@ -1,6 +1,6 @@
 package com.template.forms
 
-import com.r3.custom.Schema
+import com.r3.demo.custom.Schema
 import net.corda.core.identity.Party
 
 

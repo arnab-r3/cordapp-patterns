@@ -1,9 +1,9 @@
 package com.r3.demo.extensibleworkflows
 
 import co.paralleluniverse.fibers.Suspendable
-import com.r3.custom.Schema
-import com.r3.custom.SchemaContract
-import com.r3.custom.SchemaState
+import com.r3.demo.custom.Schema
+import com.r3.demo.custom.SchemaContract
+import com.r3.demo.custom.SchemaState
 import com.r3.demo.datadistribution.flows.GroupDataAssociationFlows
 import com.r3.demo.datadistribution.flows.GroupDataManagementFlow
 import com.r3.demo.generic.flowFail
