@@ -2,13 +2,17 @@ package com.r3.demo.crossnotaryswap.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
-import com.r3.corda.lib.tokens.contracts.utilities.heldBy
 import com.r3.corda.lib.tokens.contracts.utilities.issuedBy
-import com.r3.corda.lib.tokens.contracts.utilities.of
 import com.r3.corda.lib.tokens.workflows.flows.evolvable.addCreateEvolvableToken
+import com.r3.corda.lib.tokens.workflows.flows.move.MoveTokensFlowHandler
+import com.r3.corda.lib.tokens.workflows.flows.move.addMoveNonFungibleTokens
+import com.r3.corda.lib.tokens.workflows.internal.flows.distribution.UpdateDistributionListFlow
 import com.r3.corda.lib.tokens.workflows.internal.flows.finality.ObserverAwareFinalityFlow
 import com.r3.corda.lib.tokens.workflows.internal.flows.finality.ObserverAwareFinalityFlowHandler
+import com.r3.corda.lib.tokens.workflows.types.PartyAndToken
+import com.r3.corda.lib.tokens.workflows.utilities.heldBy
 import com.r3.corda.lib.tokens.workflows.utilities.sessionsForParticipants
+import com.r3.corda.lib.tokens.workflows.utilities.sessionsForParties
 import com.r3.demo.crossnotaryswap.flows.dto.KittyTokenDefinition
 import com.r3.demo.crossnotaryswap.flows.dto.TokenDefinition
 import com.r3.demo.generic.argFail
@@ -18,11 +22,11 @@ import net.corda.core.contracts.requireThat
 import net.corda.core.flows.*
 import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
-import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
+import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.unwrap
 
 object NFTFlows {
@@ -48,7 +52,7 @@ object NFTFlows {
                 }
                 else -> argFail("Unable to find the token definition")
             }
-            val notary = getPreferredNotaryForToken(tokenTypeName)
+            val notary = getPreferredNotaryForToken(tokenState.toPointer(tokenState.javaClass))
             val transactionBuilder = TransactionBuilder(notary)
             addCreateEvolvableToken(transactionBuilder, tokenState, notary)
 
@@ -113,7 +117,6 @@ object NFTFlows {
     class IssueNFTFlow(
         private val tokenIdentifier: String,
         private val tokenClass: Class<out EvolvableTokenType>,
-        private val tokenQuantity: Long,
         private val receivingParty: AbstractParty) : FlowLogic<SignedTransaction>() {
 
         @Suspendable
@@ -124,32 +127,85 @@ object NFTFlows {
                     contractStateTypes = setOf(tokenClass)
                 )
 
-            val evolvableTokens = serviceHub.vaultService.queryBy<EvolvableTokenType>(queryCriteria)
+            val evolvableTokens = serviceHub.vaultService.queryBy(tokenClass, queryCriteria)
 
-            require(evolvableTokens.totalStatesAvailable > 0) {"Unable to find any evolvable tokens with identifier $tokenIdentifier"}
+            require(evolvableTokens.states.isNotEmpty()) {"Unable to find any evolvable tokens with identifier $tokenIdentifier"}
 
             val tokenToIssue = evolvableTokens.states.single().state.data
 
             val tokenPointer = tokenToIssue.toPointer(tokenClass)
 
-            val issuedTokenType = tokenQuantity of tokenPointer issuedBy ourIdentity heldBy receivingParty
+            val issuedTokenType = tokenPointer issuedBy ourIdentity heldBy receivingParty
 
             return subFlow(
                 IssueTokensFlowWithNotarySelection(
                     token = issuedTokenType,
-                    participantSessions = sessionsForParticipants(listOf(tokenToIssue)))
+                    participantSessions = sessionsForParticipants(listOf(issuedTokenType)))
             )
         }
     }
 
     @InitiatedBy(IssueNFTFlow::class)
     class IssueNFTFlowHandler(private val otherPartySession: FlowSession) : FlowLogic<Unit>() {
-
         @Suspendable
-        override fun call() {
-            return subFlow(IssueTokensFlowWithNotarySelectionHandler(otherPartySession))
+        override fun call() = subFlow(IssueTokensFlowWithNotarySelectionHandler(otherPartySession))
+    }
+
+
+
+    @InitiatingFlow
+    @StartableByRPC
+    class MoveNFTFlow(
+        private val partyAndToken: PartyAndToken,
+        private val observers: List<Party> = emptyList(),
+        private val queryCriteria: QueryCriteria? = null
+    ) : FlowLogic<SignedTransaction>() {
+
+        @Suppress("ClassName")
+        companion object {
+            object CONSTRUCTING_TX : ProgressTracker.Step("Constructing transaction")
+            object TRANSFERRING_TOKENS : ProgressTracker.Step("Transferring Tokens")
         }
 
+        override val progressTracker = ProgressTracker(
+            CONSTRUCTING_TX, TRANSFERRING_TOKENS
+        )
+
+        @Suspendable
+        override fun call(): SignedTransaction {
+
+            progressTracker.currentStep = CONSTRUCTING_TX
+
+            val transactionBuilder = TransactionBuilder(getPreferredNotaryForToken(partyAndToken.token))
+
+            progressTracker.currentStep = TRANSFERRING_TOKENS
+            addMoveNonFungibleTokens(transactionBuilder, serviceHub, partyAndToken, queryCriteria)
+
+            val observerSessions = sessionsForParties(observers)
+            val participantSessions = sessionsForParties(listOf(partyAndToken.party))
+
+
+            // Create new participantSessions if this is started as a top level flow.
+            val signedTransaction = subFlow(
+                ObserverAwareFinalityFlow(
+                    transactionBuilder = transactionBuilder,
+                    allSessions = participantSessions + observerSessions
+                )
+            )
+
+            // Update the distribution list.
+            subFlow(UpdateDistributionListFlow(signedTransaction))
+            // Return the newly created transaction.
+            return signedTransaction
+        }
+
+    }
+
+    @InitiatedBy(MoveNFTFlow::class)
+    class MoveNFTFlowHandler(private val counterPartySession: FlowSession) : FlowLogic<Unit>() {
+
+        @Suspendable
+        override fun call() = subFlow(MoveTokensFlowHandler(counterPartySession))
 
     }
 

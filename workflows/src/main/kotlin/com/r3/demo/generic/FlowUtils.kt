@@ -3,7 +3,9 @@ package com.r3.demo.generic
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.corda.lib.accounts.workflows.ourIdentity
 import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
+import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.workflows.utilities.firstNotary
+import com.r3.demo.crossnotaryswap.flows.utils.TokenRegistry
 import net.corda.bn.flows.MembershipNotFoundException
 import net.corda.core.contracts.LinearPointer
 import net.corda.core.contracts.LinearState
@@ -28,10 +30,18 @@ fun <T : LinearState> linearPointer(id: String, clazz: Class<T>) = LinearPointer
 
 
 @Suspendable
-fun FlowLogic<*>.getPreferredNotaryForToken(tokenType: String, backupSelector: (ServiceHub) -> Party = firstNotary()): Party {
+fun FlowLogic<*>.getPreferredNotaryForToken(tokenType: TokenType, backupSelector: (ServiceHub) -> Party = firstNotary()): Party {
+    if (tokenType.isCustomTokenType()) argFail("Notary selection for custom token type not yet supported")
+
+    val tokenLegend = if(tokenType.isPointer())
+        TokenRegistry.getCurrencyCode(tokenType.tokenClass)
+    else
+        tokenType.tokenIdentifier
+
     val notaryString = try {
         val config: CordappConfig = serviceHub.getAppContext().config
-        val key = "${tokenType.toLowerCase()}_notary"
+
+        val key = "${tokenLegend.toLowerCase()}_notary"
         config.getString(key)
     } catch (e: CordappConfigException) {
         ""

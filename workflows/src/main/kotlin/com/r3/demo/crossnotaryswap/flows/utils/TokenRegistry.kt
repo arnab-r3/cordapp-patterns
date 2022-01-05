@@ -3,9 +3,10 @@ package com.r3.demo.crossnotaryswap.flows.utils
 import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.contracts.utilities.amount
 import com.r3.corda.lib.tokens.money.FiatCurrency
+import com.r3.demo.crossnotaryswap.states.KittyToken
 import net.corda.core.contracts.Amount
 
-class CurrencyUtils {
+class TokenRegistry {
 
     companion object {
         private val registry = mapOf(
@@ -15,12 +16,21 @@ class CurrencyUtils {
             "KITTY" to TokenType("KITTY", 0)
         )
 
+        private val currencyClassMap = mapOf<Class<*>, String>(
+            KittyToken::class.java to "KITTY"
+        )
+
         fun getInstance(currencyCode: String) : TokenType {
             return registry[currencyCode]?: throw IllegalArgumentException("$currencyCode does not exist.")
+        }
+        fun getCurrencyCode(clazz: Class<*>) : String{
+            return currencyClassMap[clazz]?:throw IllegalArgumentException("$clazz does not exist.")
         }
     }
 }
 
-val INRTokenType = CurrencyUtils.getInstance("INR")
+val INRTokenType = TokenRegistry.getInstance("INR")
 val Int.INR : Amount<TokenType> get() = amount(this, INRTokenType)
 val Long.INR : Amount<TokenType> get() = amount(this, INRTokenType)
+
+

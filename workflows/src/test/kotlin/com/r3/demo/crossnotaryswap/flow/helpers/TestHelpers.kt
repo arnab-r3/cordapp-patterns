@@ -44,12 +44,12 @@ fun assertHasTransaction(tx: SignedTransaction, network: MockNetwork, vararg nod
     }
 }
 
-fun assertTransactionUsesNotary(tx: SignedTransaction, network: MockNetwork, node: StartedMockNode) {
-    require(node.legalIdentity().name.organisation.contains("Notary")){
+fun assertTransactionUsesNotary(tx: SignedTransaction, network: MockNetwork, notary: StartedMockNode) {
+    require(notary.legalIdentity().name.organisation.contains("Notary")){
         "Node should be of type Notary"
     }
     network.waitQuiescent()
-    assertEquals(node.legalIdentity(), tx.notary)
+    assertEquals(notary.legalIdentity(), tx.notary)
 }
 
 /**

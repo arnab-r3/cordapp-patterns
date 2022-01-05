@@ -1,5 +1,6 @@
 package com.r3.demo.crossnotaryswap.states.flow.tests
 
+import com.r3.corda.lib.tokens.contracts.states.NonFungibleToken
 import com.r3.demo.crossnotaryswap.flow.helpers.*
 import com.r3.demo.crossnotaryswap.flows.NFTFlows
 import com.r3.demo.crossnotaryswap.flows.dto.KittyTokenDefinition
@@ -93,5 +94,39 @@ class NFTTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
 
         assertHasTransaction(transaction, network, partyANode, partyBNode, partyDNode)
         assertNotHasTransaction(transaction, network, partyCNode)
+    }
+
+    @Test
+    fun `issue nft without observers`() {
+        val tokenDefinition = KittyTokenDefinition(
+            kittyName = "Black Kitty",
+            maintainers = listOf(partyANode.legalIdentity().toString())
+        )
+
+        val defineTxn = partyANode.startFlow(
+            NFTFlows.DefineNFTFlow(tokenDefinition)
+        ).getOrThrow()
+
+        network.waitQuiescent()
+
+        val tokenDefinitionId = defineTxn.singleOutput<KittyToken>().state.data.linearId.toString()
+
+        val issueTxn = partyANode.startFlow(
+            NFTFlows.IssueNFTFlow(
+                tokenIdentifier = tokenDefinitionId,
+                tokenClass = KittyToken::class.java,
+                receivingParty = partyBNode.legalIdentity()
+            )
+        ).getOrThrow()
+
+        network.waitQuiescent()
+
+        val issueTxnOutput = issueTxn.singleOutput<NonFungibleToken>().state.data
+
+        assertEquals(partyBNode.legalIdentity(), issueTxnOutput.holder)
+
+        assertTransactionUsesNotary(issueTxn, network, notaryBNode)
+        assertHasTransaction(issueTxn, network, partyANode, partyBNode)
+        assertNotHasTransaction(issueTxn, network, partyCNode, partyDNode)
     }
 }

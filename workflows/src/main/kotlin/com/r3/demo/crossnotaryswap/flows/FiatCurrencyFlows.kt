@@ -13,7 +13,7 @@ import com.r3.corda.lib.tokens.workflows.types.PartyAndAmount
 import com.r3.corda.lib.tokens.workflows.utilities.sessionsForParticipants
 import com.r3.corda.lib.tokens.workflows.utilities.sessionsForParties
 import com.r3.corda.lib.tokens.workflows.utilities.tokenBalance
-import com.r3.demo.crossnotaryswap.flows.utils.CurrencyUtils
+import com.r3.demo.crossnotaryswap.flows.utils.TokenRegistry
 import com.r3.demo.generic.getPreferredNotaryForToken
 import net.corda.core.contracts.Amount
 import net.corda.core.flows.*
@@ -38,7 +38,7 @@ object CurrencyFlows {
         @Suspendable
         override fun call(): SignedTransaction {
 
-            val currencyTokenType = CurrencyUtils.getInstance(currency)
+            val currencyTokenType = TokenRegistry.getInstance(currency)
             val tokenToIssue = amount of currencyTokenType issuedBy ourIdentity heldBy (receiver ?: ourIdentity)
 
             return subFlow(
@@ -67,7 +67,7 @@ object CurrencyFlows {
 
         @Suspendable
         override fun call(): Amount<TokenType> {
-            val currencyType = CurrencyUtils.getInstance(currency)
+            val currencyType = TokenRegistry.getInstance(currency)
             return serviceHub.vaultService.tokenBalance(currencyType)
         }
     }
@@ -75,7 +75,7 @@ object CurrencyFlows {
 
     @InitiatingFlow
     @StartableByRPC
-    class MoveTokensFlow(
+    class MoveFiatTokensFlow(
         private val partiesAndAmounts: List<PartyAndAmount<TokenType>>,
         private val observers: List<Party> = emptyList(),
         private val changeHolder: AbstractParty? = null
@@ -88,7 +88,7 @@ object CurrencyFlows {
             changeHolder: AbstractParty? = null,
             observers: List<Party>
         ) : this(
-            partiesAndAmounts = listOf(PartyAndAmount(receiver, amount of CurrencyUtils.getInstance(currency))),
+            partiesAndAmounts = listOf(PartyAndAmount(receiver, amount of TokenRegistry.getInstance(currency))),
             observers = observers,
             changeHolder = changeHolder
         )
@@ -113,7 +113,7 @@ object CurrencyFlows {
             require(tokenTypes.size == 1) { "All tokens must be of the same type" }
 
             // Initialise the transaction builder with no notary.
-            val transactionBuilder = TransactionBuilder(getPreferredNotaryForToken(tokenTypes.single().tokenIdentifier))
+            val transactionBuilder = TransactionBuilder(getPreferredNotaryForToken(tokenTypes.single()))
             // Add all the specified inputs and outputs to the transaction.
             // The correct commands and signing keys are also added.
 
@@ -146,8 +146,8 @@ object CurrencyFlows {
 
     }
 
-    @InitiatedBy(MoveTokensFlow::class)
-    class MoveTokensHandler(private val counterPartySession: FlowSession) : FlowLogic<Unit>() {
+    @InitiatedBy(MoveFiatTokensFlow::class)
+    class MoveFiatTokensFlowHandler(private val counterPartySession: FlowSession) : FlowLogic<Unit>() {
 
         @Suspendable
         override fun call() {

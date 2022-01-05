@@ -102,7 +102,7 @@ class FiatTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
 
 
         val moveTxn = partyBNode.startFlow(
-            CurrencyFlows.MoveTokensFlow(
+            CurrencyFlows.MoveFiatTokensFlow(
                 currency = "INR",
                 amount = 12,
                 receiver = partyCNode.legalIdentity(),

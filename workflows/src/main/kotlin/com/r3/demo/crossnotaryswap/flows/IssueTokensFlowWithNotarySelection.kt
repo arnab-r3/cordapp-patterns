@@ -53,7 +53,7 @@ constructor(
         val tokenType = tokenTypes.single()
 
         // Initialise the transaction builder with a preferred notary or choose a random notary.
-        val transactionBuilder = TransactionBuilder(notary = getPreferredNotaryForToken(tokenType.tokenIdentifier))
+        val transactionBuilder = TransactionBuilder(notary = getPreferredNotaryForToken(tokenType))
 
         // Add all the specified tokensToIssue to the transaction. The correct commands and signing keys are also added.
         addIssueTokens(transactionBuilder, tokensToIssue)
