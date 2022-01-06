@@ -1,6 +1,7 @@
 package com.r3.demo.crossnotaryswap.flows
 
 import co.paralleluniverse.fibers.Suspendable
+import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeAsset
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
 import com.r3.demo.crossnotaryswap.services.ExchangeRequestService
@@ -31,8 +32,10 @@ object InitiateExchangeFlows {
     class ExchangeRequesterFlow(
         private val sellerParty: AbstractParty,
         private val sellerTokenIdentifier: String,
+        private val sellerTokenClass: Class<out EvolvableTokenType>? = null,
         private val sellerTokenAmount: Long? = null,
         private val buyerTokenIdentifier: String,
+        private val buyerTokenClass: Class<out EvolvableTokenType>? = null,
         private val buyerTokenAmount: Long? = null
     ) : FlowLogic<Unit>() {
 
@@ -41,8 +44,8 @@ object InitiateExchangeFlows {
 
             val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
 
-            val buyerAsset = ExchangeAsset.toAssetType(buyerTokenIdentifier, buyerTokenAmount)
-            val sellerAsset = ExchangeAsset.toAssetType(sellerTokenIdentifier, sellerTokenAmount)
+            val buyerAsset = ExchangeAsset.toAssetType(buyerTokenIdentifier, buyerTokenAmount, buyerTokenClass, serviceHub)
+            val sellerAsset = ExchangeAsset.toAssetType(sellerTokenIdentifier, sellerTokenAmount, sellerTokenClass, serviceHub)
 
             if (!exchangeService.isExchangeAssetOwned(buyerAsset))
                 flowFail("The specified asset does not belong to us " +

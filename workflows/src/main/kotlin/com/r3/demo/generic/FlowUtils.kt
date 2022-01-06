@@ -9,6 +9,7 @@ import com.r3.demo.crossnotaryswap.flows.utils.TokenRegistry
 import net.corda.bn.flows.MembershipNotFoundException
 import net.corda.core.contracts.LinearPointer
 import net.corda.core.contracts.LinearState
+import net.corda.core.contracts.TimeWindow
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.cordapp.CordappConfig
 import net.corda.core.cordapp.CordappConfigException
@@ -17,6 +18,7 @@ import net.corda.core.flows.FlowLogic
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.identity.Party
 import net.corda.core.node.ServiceHub
+import java.time.Instant
 
 fun getDefaultNotary(serviceHub: ServiceHub) = serviceHub.networkMapCache.notaryIdentities.first()
 
@@ -34,7 +36,7 @@ fun FlowLogic<*>.getPreferredNotaryForToken(tokenType: TokenType, backupSelector
     if (tokenType.isCustomTokenType()) argFail("Notary selection for custom token type not yet supported")
 
     val currencyCode = if(tokenType.isPointer())
-        TokenRegistry.getTokenIdentifier(tokenType.tokenClass)
+        TokenRegistry.getTokenAbbreviation(tokenType.tokenClass)
     else
         tokenType.tokenIdentifier
 
@@ -57,6 +59,16 @@ fun FlowLogic<*>.getPreferredNotaryForToken(tokenType: TokenType, backupSelector
     }
 }
 
+
+fun getTimeWindow(serviceHub: ServiceHub) : TimeWindow{
+    val config: CordappConfig = serviceHub.getAppContext().config
+    return try {
+        val durationValue = config.getString("wiretx_timewindow")
+        TimeWindow.untilOnly(Instant.now().plusSeconds(durationValue.toLong()))
+    }catch (e: CordappConfigException){
+        TimeWindow.untilOnly(Instant.now().plusSeconds(300))
+    }
+}
 
 @Suspendable
 fun ServiceHub.stateObservers(state: EvolvableTokenType) : List<Party> {

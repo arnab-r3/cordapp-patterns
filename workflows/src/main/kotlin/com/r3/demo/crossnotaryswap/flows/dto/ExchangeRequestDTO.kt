@@ -1,5 +1,6 @@
 package com.r3.demo.crossnotaryswap.flows.dto
 
+import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
 import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.demo.crossnotaryswap.flows.utils.TokenRegistry
 import com.r3.demo.crossnotaryswap.schemas.ExchangeRequest
@@ -7,6 +8,7 @@ import com.r3.demo.crossnotaryswap.types.RequestStatus
 import com.r3.demo.generic.argFail
 import net.corda.core.contracts.Amount
 import net.corda.core.identity.AbstractParty
+import net.corda.core.node.ServiceHub
 import net.corda.core.serialization.CordaSerializable
 import java.util.*
 
@@ -22,9 +24,11 @@ open class ExchangeAsset<T : TokenType>(
     companion object {
         fun toAssetType(
             tokenIdentifier: String,
-            amount: Long? = null
+            amount: Long? = null,
+            tokenClass: Class<out EvolvableTokenType>?,
+            serviceHub: ServiceHub
         ): ExchangeAsset<out TokenType> {
-            val tokenType = TokenRegistry.getInstance(tokenIdentifier)
+            val tokenType = TokenRegistry.getInstance(tokenIdentifier, serviceHub, tokenClass)
             return amount?.let {
                 ExchangeAsset(tokenType = tokenType, amount = Amount(amount, tokenType))
             } ?: ExchangeAsset(tokenType = tokenType)
@@ -35,7 +39,7 @@ open class ExchangeAsset<T : TokenType>(
         val tokenIdentifier = with(tokenType) {
             when {
                 isRegularTokenType() -> tokenIdentifier
-                isPointer() -> TokenRegistry.getTokenIdentifier(tokenClass)
+                isPointer() -> TokenRegistry.getTokenAbbreviation(tokenClass)
                 else -> argFail("Unable to determine tokenType. Should be either token pointer or regular token")
             }
         }
@@ -90,7 +94,8 @@ data class ExchangeRequestDTO(
     )
 
     fun approve(): ExchangeRequestDTO = this.copy(requestStatus = RequestStatus.APPROVED)
-    fun reject(reason: String?=null): ExchangeRequestDTO = this.copy(requestStatus = RequestStatus.REQUESTED, reason = reason)
+    fun reject(reason: String? = null): ExchangeRequestDTO =
+        this.copy(requestStatus = RequestStatus.REQUESTED, reason = reason)
 
 
     override fun equals(other: Any?): Boolean {
