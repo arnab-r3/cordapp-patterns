@@ -33,15 +33,15 @@ fun <T : LinearState> linearPointer(id: String, clazz: Class<T>) = LinearPointer
 fun FlowLogic<*>.getPreferredNotaryForToken(tokenType: TokenType, backupSelector: (ServiceHub) -> Party = firstNotary()): Party {
     if (tokenType.isCustomTokenType()) argFail("Notary selection for custom token type not yet supported")
 
-    val tokenLegend = if(tokenType.isPointer())
-        TokenRegistry.getCurrencyCode(tokenType.tokenClass)
+    val currencyCode = if(tokenType.isPointer())
+        TokenRegistry.getTokenIdentifier(tokenType.tokenClass)
     else
         tokenType.tokenIdentifier
 
     val notaryString = try {
         val config: CordappConfig = serviceHub.getAppContext().config
 
-        val key = "${tokenLegend.toLowerCase()}_notary"
+        val key = "${currencyCode.toLowerCase()}_notary"
         config.getString(key)
     } catch (e: CordappConfigException) {
         ""

@@ -20,10 +20,10 @@ class TokenRegistry {
             KittyToken::class.java to "KITTY"
         )
 
-        fun getInstance(currencyCode: String) : TokenType {
-            return registry[currencyCode]?: throw IllegalArgumentException("$currencyCode does not exist.")
+        fun getInstance(tokenIdentifier: String) : TokenType {
+            return registry[tokenIdentifier]?: throw IllegalArgumentException("$tokenIdentifier does not exist.")
         }
-        fun getCurrencyCode(clazz: Class<*>) : String{
+        fun getTokenIdentifier(clazz: Class<*>) : String{
             return currencyClassMap[clazz]?:throw IllegalArgumentException("$clazz does not exist.")
         }
     }

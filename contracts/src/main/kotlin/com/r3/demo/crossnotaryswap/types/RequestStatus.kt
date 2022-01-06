@@ -6,5 +6,6 @@ import net.corda.core.serialization.CordaSerializable
 enum class RequestStatus {
     REQUESTED,
     APPROVED,
+    ABORTED,
     DENIED
 }

@@ -1,6 +1,7 @@
 package com.r3.demo.crossnotaryswap.states.flow.tests
 
 import com.r3.corda.lib.tokens.contracts.states.NonFungibleToken
+import com.r3.corda.lib.tokens.workflows.types.PartyAndToken
 import com.r3.demo.crossnotaryswap.flow.helpers.*
 import com.r3.demo.crossnotaryswap.flows.NFTFlows
 import com.r3.demo.crossnotaryswap.flows.dto.KittyTokenDefinition
@@ -97,7 +98,9 @@ class NFTTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
     }
 
     @Test
-    fun `issue nft without observers`() {
+    fun `issue and move nft without observers`() {
+
+        // define token
         val tokenDefinition = KittyTokenDefinition(
             kittyName = "Black Kitty",
             maintainers = listOf(partyANode.legalIdentity().toString())
@@ -109,6 +112,7 @@ class NFTTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
 
         network.waitQuiescent()
 
+        // issue token to party B
         val tokenDefinitionId = defineTxn.singleOutput<KittyToken>().state.data.linearId.toString()
 
         val issueTxn = partyANode.startFlow(
@@ -124,9 +128,32 @@ class NFTTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
         val issueTxnOutput = issueTxn.singleOutput<NonFungibleToken>().state.data
 
         assertEquals(partyBNode.legalIdentity(), issueTxnOutput.holder)
+        assertEquals(partyANode.legalIdentity(), issueTxnOutput.issuer)
 
         assertTransactionUsesNotary(issueTxn, network, notaryBNode)
         assertHasTransaction(issueTxn, network, partyANode, partyBNode)
         assertNotHasTransaction(issueTxn, network, partyCNode, partyDNode)
+
+
+        // move token to party D
+        val moveTransaction = partyBNode.startFlow(
+            NFTFlows.MoveNFTFlow(
+                partyAndToken = PartyAndToken(
+                    party = partyDNode.legalIdentity(),
+                    token = issueTxnOutput.issuedTokenType.tokenType
+                )
+            )
+        ).getOrThrow()
+
+        network.waitQuiescent()
+        val moveTxnOutput = moveTransaction.singleOutput<NonFungibleToken>().state.data
+
+
+        assertEquals(partyDNode.legalIdentity(), moveTxnOutput.holder)
+        assertEquals(partyANode.legalIdentity(), moveTxnOutput.issuer)
+        assertHasTransaction(moveTransaction, network, partyDNode, partyBNode)
+        assertNotHasTransaction(moveTransaction, network, partyANode, partyCNode)
+
     }
+
 }

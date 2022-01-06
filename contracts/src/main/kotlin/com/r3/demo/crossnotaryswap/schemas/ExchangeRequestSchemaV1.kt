@@ -33,15 +33,18 @@ data class ExchangeRequest(
     @Column(name = "seller_asset_type", nullable = false)
     var sellerAssetType: String,
 
-    @Column(name = "buyer_asset_qty", nullable = false)
-    var buyerAssetQty: Long,
+    @Column(name = "buyer_asset_qty", nullable = true)
+    var buyerAssetQty: Long?,
 
-    @Column(name = "seller_asset_qty", nullable = false)
-    var sellerAssetQty: Long,
+    @Column(name = "seller_asset_qty", nullable = true)
+    var sellerAssetQty: Long?,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "request_status", nullable = true, length = 12)
     var requestStatus: RequestStatus? = null,
+
+    @Column(name="reason", nullable = true)
+    var reason: String? = null,
 
     @Column(name = "tx_id", nullable = true)
     var txId: String? = null
