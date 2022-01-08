@@ -8,6 +8,7 @@ import com.r3.demo.crossnotaryswap.types.RequestStatus
 import com.r3.demo.generic.argFail
 import net.corda.core.contracts.Amount
 import net.corda.core.identity.AbstractParty
+import net.corda.core.internal.uncheckedCast
 import net.corda.core.node.ServiceHub
 import net.corda.core.serialization.CordaSerializable
 import java.util.*
@@ -69,14 +70,14 @@ data class ExchangeRequestDTO(
     val txId: String? = null
 ) {
     companion object {
-        fun fromExchangeRequestEntity(exchangeRequest: ExchangeRequest): ExchangeRequestDTO =
+        fun fromExchangeRequestEntity(exchangeRequest: ExchangeRequest, serviceHub: ServiceHub): ExchangeRequestDTO =
             with(exchangeRequest) {
                 ExchangeRequestDTO(
                     UUID.fromString(requestId),
                     buyer,
                     seller,
-                    ExchangeAsset.toAssetType(buyerAssetType, buyerAssetQty),
-                    ExchangeAsset.toAssetType(buyerAssetType, sellerAssetQty),
+                    ExchangeAsset.toAssetType(buyerAssetType, buyerAssetQty, buyerAssetClass, serviceHub),
+                    ExchangeAsset.toAssetType(buyerAssetType, sellerAssetQty, sellerAssetClass, serviceHub),
                     requestStatus,
                     txId)
             }
@@ -90,7 +91,9 @@ data class ExchangeRequestDTO(
         sellerAssetType = sellerAsset.tokenType.tokenIdentifier,
         buyerAssetQty = buyerAsset.amount?.quantity,
         sellerAssetQty = sellerAsset.amount?.quantity,
-        requestStatus = requestStatus
+        requestStatus = requestStatus,
+        buyerAssetClass = uncheckedCast(buyerAsset.tokenType.tokenClass),
+        sellerAssetClass = uncheckedCast(sellerAsset.tokenType.tokenClass)
     )
 
     fun approve(): ExchangeRequestDTO = this.copy(requestStatus = RequestStatus.APPROVED)

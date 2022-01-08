@@ -1,5 +1,6 @@
 package com.r3.demo.crossnotaryswap.schemas
 
+import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
 import com.r3.demo.crossnotaryswap.types.RequestStatus
 import net.corda.core.identity.AbstractParty
 import net.corda.core.schemas.MappedSchema
@@ -35,6 +36,12 @@ data class ExchangeRequest(
 
     @Column(name = "buyer_asset_qty", nullable = true)
     var buyerAssetQty: Long?,
+
+    @Column(name = "buyer_asset_class", nullable = true)
+    val buyerAssetClass: Class<out EvolvableTokenType>,
+
+    @Column(name = "seller_asset_class", nullable = true)
+    var sellerAssetClass: Class<out EvolvableTokenType>,
 
     @Column(name = "seller_asset_qty", nullable = true)
     var sellerAssetQty: Long?,

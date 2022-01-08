@@ -1,8 +1,21 @@
 package com.r3.demo.crossnotaryswap.flows.utils
 
 import co.paralleluniverse.fibers.Suspendable
+import com.r3.corda.lib.tokens.contracts.types.TokenType
+import com.r3.corda.lib.tokens.contracts.utilities.of
+import com.r3.corda.lib.tokens.workflows.flows.move.addMoveFungibleTokens
+import com.r3.corda.lib.tokens.workflows.flows.move.addMoveNonFungibleTokens
+import com.r3.corda.lib.tokens.workflows.types.PartyAndAmount
+import com.r3.corda.lib.tokens.workflows.types.PartyAndToken
+import com.r3.demo.crossnotaryswap.flows.dto.ExchangeAsset
+import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
+import com.r3.demo.generic.flowFail
+import net.corda.core.contracts.Amount
 import net.corda.core.crypto.*
+import net.corda.core.flows.FlowLogic
+import net.corda.core.identity.AbstractParty
 import net.corda.core.node.ServiceHub
+import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.transactions.WireTransaction
 
 /**
@@ -67,4 +80,53 @@ fun WireTransaction.getSignatureMetadataForNotary(serviceHub: ServiceHub) : Sign
         notaryInfo.platformVersion,
         Crypto.findSignatureScheme(notary.owningKey).schemeNumberID
     )
+}
+
+@Suspendable
+fun FlowLogic<*>.addOurAssetToTransactionBuilder(
+    transactionBuilder: TransactionBuilder,
+    exchangeRequestDto: ExchangeRequestDTO,
+    isBuyer: Boolean
+): TransactionBuilder {
+    val ourAsset: ExchangeAsset<out TokenType>
+    val receivingParty: AbstractParty
+    val senderIdentity: AbstractParty
+    val senderTokenType: TokenType
+    val senderTokenAmount: Amount<out TokenType>?
+    if (isBuyer) {
+        ourAsset = exchangeRequestDto.buyerAsset
+        receivingParty = exchangeRequestDto.seller
+        senderIdentity = ourIdentity
+        senderTokenType = exchangeRequestDto.buyerAsset.tokenType
+        senderTokenAmount = exchangeRequestDto.buyerAsset.amount
+    } else {
+        ourAsset = exchangeRequestDto.sellerAsset
+        receivingParty = exchangeRequestDto.buyer
+        senderIdentity = ourIdentity
+        senderTokenType = exchangeRequestDto.sellerAsset.tokenType
+        senderTokenAmount = exchangeRequestDto.sellerAsset.amount
+    }
+
+    return when {
+        // add the move tokens if it is a nft
+        ourAsset.tokenType.isRegularTokenType() -> {
+            val amount = senderTokenAmount!!.quantity
+            val partyAndAmount = PartyAndAmount(receivingParty, amount of senderTokenType)
+            addMoveFungibleTokens(
+                transactionBuilder = transactionBuilder,
+                serviceHub = serviceHub,
+                partiesAndAmounts = listOf(partyAndAmount),
+                changeHolder = senderIdentity,
+                queryCriteria = null)
+        }
+        // add the move tokens if it is a fungible token
+        ourAsset.tokenType.isPointer() -> {
+            val partyAndToken = PartyAndToken(receivingParty, senderTokenType)
+            addMoveNonFungibleTokens(
+                transactionBuilder = transactionBuilder,
+                serviceHub = serviceHub,
+                partyAndToken = partyAndToken)
+        }
+        else -> flowFail("Cannot support move operation for a token which is neither a Regular token or a NFT")
+    }
 }

@@ -8,7 +8,6 @@ import com.r3.demo.crossnotaryswap.states.KittyToken
 import com.r3.demo.generic.argFail
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.UniqueIdentifier
-import net.corda.core.node.AppServiceHub
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.vault.QueryCriteria
 
@@ -48,12 +47,9 @@ class TokenRegistry {
                     evolvableTokens.states.single().state.data.toPointer(tokenClass)
 
                 }
-                else -> getInstance(tokenIdentifier)
+                else -> registry[tokenIdentifier]
+                    ?: argFail("Cannot find currency type with token identifier: $tokenIdentifier")
             }
-        }
-
-        private fun getTokenDefinition(tokenIdentifier: String, serviceHub: AppServiceHub) {
-            serviceHub.vaultService
         }
 
         fun getTokenAbbreviation(clazz: Class<*>): String {

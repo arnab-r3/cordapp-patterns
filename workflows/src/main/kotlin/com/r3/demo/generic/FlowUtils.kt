@@ -60,7 +60,7 @@ fun FlowLogic<*>.getPreferredNotaryForToken(tokenType: TokenType, backupSelector
 }
 
 
-fun getTimeWindow(serviceHub: ServiceHub) : TimeWindow{
+fun getDefaultTimeWindow(serviceHub: ServiceHub) : TimeWindow{
     val config: CordappConfig = serviceHub.getAppContext().config
     return try {
         val durationValue = config.getString("wiretx_timewindow")

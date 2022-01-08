@@ -10,10 +10,14 @@ import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
 import com.r3.demo.crossnotaryswap.flows.utils.generateWireTransactionMerkleTree
 import com.r3.demo.crossnotaryswap.flows.utils.getDependencies
 import com.r3.demo.crossnotaryswap.services.ExchangeRequestService
+import com.r3.demo.crossnotaryswap.states.ValidatedDraftTransferOfOwnership
 import com.r3.demo.generic.flowFail
+import com.r3.demo.generic.getDefaultTimeWindow
 import com.r3.demo.generic.getPreferredNotaryForToken
-import com.r3.demo.generic.getTimeWindow
+import net.corda.core.crypto.Crypto
+import net.corda.core.crypto.SignatureMetadata
 import net.corda.core.flows.*
+import net.corda.core.identity.Party
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
@@ -41,7 +45,7 @@ class DraftTransferOfOwnershipFlow(
             addBuyerAssetToTransactionBuilder(transactionBuilder, exchangeRequestDto)
 
         // add time window
-        constructedTxForTransfer.setTimeWindow(getTimeWindow(serviceHub))
+        constructedTxForTransfer.setTimeWindow(getDefaultTimeWindow(serviceHub))
         //convert to wire tx
         val unsignedWireTx = constructedTxForTransfer.toWireTransaction(serviceHub)
 
@@ -58,7 +62,7 @@ class DraftTransferOfOwnershipFlow(
         }
 
         val txOk = sellerSession.receive<Boolean>().unwrap { it }
-        if(!txOk) flowFail("Failed to exchange unsigned transaction with the seller")
+        if (!txOk) flowFail("Failed to exchange unsigned transaction with the seller")
     }
 
     @Suspendable
@@ -103,14 +107,41 @@ class DraftTransferOfOwnershipHandler(private val counterPartySession: FlowSessi
 
         val unsignedWireTx = counterPartySession.receive<WireTransaction>().unwrap { it }
 
-        val txOk = receiveAndVerifyTxDependencies(counterPartySession, unsignedWireTx) && verifyShareConditions(unsignedWireTx)
-                && verifySharedTx(unsignedWireTx)
+        val txOk =
+            receiveAndVerifyTxDependencies(counterPartySession, unsignedWireTx) && verifyShareConditions(unsignedWireTx)
+                    && verifySharedTx(unsignedWireTx)
         if (!txOk) flowFail("Failed to validate the proposed transaction or one of its dependencies")
 
         // respond to the buyer that the transaction is verified and ok.
         counterPartySession.send(txOk)
 
+        // TODO start the offer encumbered tokens flow
+
+        val notaryIdentity = unsignedWireTx.notary!!
+        val notarySignatureMetadata = getSignatureMetadata(notaryIdentity)
+
+        val validatedDraftTransferOfOwnership = ValidatedDraftTransferOfOwnership(tx = unsignedWireTx,
+            controllingNotary = notaryIdentity,
+            notarySignatureMetadata = notarySignatureMetadata)
+
+
     }
+
+
+    /**
+     * Retrieve the identity and signature metadata to be associated with a node from the network map
+     * @param party to get the signature metadata for
+     */
+    @Suspendable
+    private fun getSignatureMetadata(party: Party): SignatureMetadata {
+        val nodeInfo = serviceHub.networkMapCache.getNodeByLegalIdentity(party)
+            ?: flowFail("Unable to fetch notary node details from network map $party")
+        return SignatureMetadata(nodeInfo.platformVersion,
+            Crypto.findSignatureScheme(party.owningKey).schemeNumberID)
+
+
+    }
+
     /**
      * Receive and verify all [wireTransaction]'s dependencies.
      * @param otherSession the session with the other party.
