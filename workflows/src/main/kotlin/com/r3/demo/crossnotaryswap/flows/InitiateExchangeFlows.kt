@@ -51,7 +51,6 @@ object InitiateExchangeFlows {
                 flowFail("The specified asset does not belong to us " +
                         "or is in insufficient quantity: $buyerAsset")
 
-
             val exchangeRequestDto = ExchangeRequestDTO(
                 buyer = ourIdentity,
                 seller = sellerParty,
@@ -60,11 +59,8 @@ object InitiateExchangeFlows {
             )
 
             exchangeService.newExchangeRequestFromDto(exchangeRequestDto)
-
             val sellerSession = initiateFlow(sellerParty)
-
             sellerSession.send(exchangeRequestDto)
-
         }
 
     }
@@ -77,15 +73,11 @@ object InitiateExchangeFlows {
 
         @Suspendable
         override fun call() {
-
             val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
-
             // receive the request and save it
             val exchangeRequestDto = counterPartySession.receive<ExchangeRequestDTO>().unwrap { it }
-
             exchangeService.newExchangeRequestFromDto(exchangeRequestDto)
         }
-
     }
 
 
@@ -165,7 +157,7 @@ object InitiateExchangeFlows {
             exchangeService.setRequestStatus(exchangeRequestDto.requestId.toString(),
                 exchangeRequestResponse.requestStatus, exchangeRequestDto.reason)
 
-            // TODO initiate transfer
+            subFlow(DraftTransferOfOwnershipFlow(exchangeRequestDto.requestId.toString()))
         }
 
     }

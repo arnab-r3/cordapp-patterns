@@ -21,7 +21,7 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
      * Get Exchange request by requestId
      */
     fun getRequestById(requestId: String): ExchangeRequestDTO =
-        ExchangeRequestDTO.fromExchangeRequestEntity(getRequestEntityById(requestId))
+        ExchangeRequestDTO.fromExchangeRequestEntity(getRequestEntityById(requestId), appServiceHub)
 
 
     /**

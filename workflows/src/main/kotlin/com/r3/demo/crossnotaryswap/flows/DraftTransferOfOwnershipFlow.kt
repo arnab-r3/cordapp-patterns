@@ -1,6 +1,8 @@
 package com.r3.demo.crossnotaryswap.flows
 
 import co.paralleluniverse.fibers.Suspendable
+import com.r3.corda.lib.tokens.contracts.states.FungibleToken
+import com.r3.corda.lib.tokens.contracts.states.NonFungibleToken
 import com.r3.corda.lib.tokens.contracts.utilities.of
 import com.r3.corda.lib.tokens.workflows.flows.move.addMoveFungibleTokens
 import com.r3.corda.lib.tokens.workflows.flows.move.addMoveNonFungibleTokens
@@ -14,13 +16,16 @@ import com.r3.demo.crossnotaryswap.states.ValidatedDraftTransferOfOwnership
 import com.r3.demo.generic.flowFail
 import com.r3.demo.generic.getDefaultTimeWindow
 import com.r3.demo.generic.getPreferredNotaryForToken
+import net.corda.core.contracts.ContractState
 import net.corda.core.crypto.Crypto
 import net.corda.core.crypto.SignatureMetadata
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
+import net.corda.core.internal.uncheckedCast
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
+import java.math.BigDecimal
 
 /**
  * The **buyer** would present the draft transfer of ownership to the seller
@@ -63,6 +68,12 @@ class DraftTransferOfOwnershipFlow(
 
         val txOk = sellerSession.receive<Boolean>().unwrap { it }
         if (!txOk) flowFail("Failed to exchange unsigned transaction with the seller")
+
+        exchangeService.setTxId(requestId, unsignedWireTx.id.toString())
+
+        // share the mapping of the Exchange request and the transaction so that the counterparty can verify it
+        sellerSession.send(requestId to unsignedWireTx.id.toString())
+
     }
 
     @Suspendable
@@ -107,15 +118,16 @@ class DraftTransferOfOwnershipHandler(private val counterPartySession: FlowSessi
 
         val unsignedWireTx = counterPartySession.receive<WireTransaction>().unwrap { it }
 
+        // receive the dependents of the shared unsigned transaction and ensure it is structurally correct
         val txOk =
-            receiveAndVerifyTxDependencies(counterPartySession, unsignedWireTx) && verifyShareConditions(unsignedWireTx)
+            receiveAndVerifyTxDependencies(counterPartySession, unsignedWireTx)
+                    && verifyShareConditions(unsignedWireTx)
                     && verifySharedTx(unsignedWireTx)
+
         if (!txOk) flowFail("Failed to validate the proposed transaction or one of its dependencies")
 
         // respond to the buyer that the transaction is verified and ok.
         counterPartySession.send(txOk)
-
-        // TODO start the offer encumbered tokens flow
 
         val notaryIdentity = unsignedWireTx.notary!!
         val notarySignatureMetadata = getSignatureMetadata(notaryIdentity)
@@ -124,7 +136,62 @@ class DraftTransferOfOwnershipHandler(private val counterPartySession: FlowSessi
             controllingNotary = notaryIdentity,
             notarySignatureMetadata = notarySignatureMetadata)
 
+        // receive the mapping of the transaction id of the shared transaction and the previous Exchange Request
+        val (requestId, txId) = counterPartySession.receive<Pair<String, String>>().unwrap { it }
 
+        if (txId != unsignedWireTx.id.toString())
+            flowFail("The requestId mapped transaction id should match that of the shared unsigned transaction")
+
+        // persist the mapping
+        val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
+        exchangeService.setTxId(requestId, txId)
+
+        // get the request details and share the encumbered tokens
+        val exchangeRequestDto = exchangeService.getRequestById(requestId)
+        // verify the shared transaction against the original exchange request
+
+        verifySharedTransactionAgainstExchangeRequest(exchangeRequestDto, unsignedWireTx)
+
+        subFlow(OfferEncumberedTokens(exchangeRequestDTO = exchangeRequestDto,
+            validatedDraftTransferOfOwnership = validatedDraftTransferOfOwnership))
+
+    }
+
+    /**
+     * Verify the shared unsigned [WireTransaction] against the offer details from the buyer
+     * present in the [ExchangeRequestDTO]
+     * @param unsignedWireTx shared by the buyer
+     * @param exchangeRequestDto exchanged and agreed by parties
+     */
+    @Suspendable
+    private fun verifySharedTransactionAgainstExchangeRequest(
+        exchangeRequestDto: ExchangeRequestDTO,
+        unsignedWireTx: WireTransaction
+    ) {
+        val buyerAsset = exchangeRequestDto.buyerAsset
+        val sentAsset = unsignedWireTx.outputStates
+        if (buyerAsset.amount != null && buyerAsset.tokenType.isRegularTokenType()) {
+            val sentAmount = sentAsset
+                .map { uncheckedCast<ContractState, FungibleToken>(it) }
+                .filter {
+                    it.holder == ourIdentity
+                }.fold(BigDecimal.ZERO) { acc, fungibleToken ->
+                    fungibleToken.amount.toDecimal() + acc
+                }
+            if (sentAmount != buyerAsset.amount.toDecimal())
+                flowFail("The shared unsigned transaction does not send the agreed amount of " +
+                        "shared tokens to $ourIdentity as agreed in Exchange Request; " +
+                        "Shared in unsigned tx: $sentAmount, Agreed: ${buyerAsset.amount}")
+        } else if (buyerAsset.tokenType.isPointer()) {
+            val sentNFTAsset = sentAsset
+                .map { uncheckedCast<ContractState, NonFungibleToken>(it) }
+                .filter { it.holder == ourIdentity }
+                .filter { it.token.tokenIdentifier == exchangeRequestDto.buyerAsset.tokenType.tokenIdentifier }
+            if (sentNFTAsset.isEmpty())
+                flowFail("The shared unsigned transaction does not transfer " +
+                        "the token with id: ${exchangeRequestDto.buyerAsset.tokenType.tokenIdentifier} to $ourIdentity" +
+                        "as agreed in the Exchange Request")
+        }
     }
 
 

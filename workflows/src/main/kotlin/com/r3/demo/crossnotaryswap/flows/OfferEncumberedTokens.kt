@@ -12,6 +12,7 @@ import com.r3.demo.generic.flowFail
 import com.r3.demo.generic.getPreferredNotaryForToken
 import com.template.flows.CollectSignaturesForComposites
 import net.corda.core.contracts.TimeWindow
+import net.corda.core.crypto.CompositeKey
 import net.corda.core.crypto.SignatureMetadata
 import net.corda.core.flows.*
 import net.corda.core.identity.AnonymousParty
@@ -39,15 +40,55 @@ class OfferEncumberedTokens(
     override fun call(): SignedTransaction {
 
         val buyerParty = exchangeRequestDTO.buyer.toParty(serviceHub)
+
+        // create the composite key to transfer the seller asset to. This is to enable equal control of both the
+        // buyer and seller of the asset.
         val compositeKeyToTransferSellerAsset = serviceHub.registerCompositeKey(ourIdentity, buyerParty)
         val compositeKeyHolderParty = AnonymousParty(compositeKeyToTransferSellerAsset)
 
+        // create the lock state that will encumber all tokens/states that the seller will transfer
         val lockState = LockState(validatedDraftTransferOfOwnership, ourIdentity, buyerParty)
 
+        //prepare the transaction
         val transactionBuilder =
             TransactionBuilder(notary = getPreferredNotaryForToken(exchangeRequestDTO.sellerAsset.tokenType))
 
-        val encumberedTransaction = with(transactionBuilder) {
+        // construct the transaction that encumbers all states on the lock state based on the exchange request
+        val encumberedTransaction =
+            addEncumberedTokensForSeller(transactionBuilder, exchangeRequestDTO, lockState, compositeKeyHolderParty)
+
+        // verify and sign
+        encumberedTransaction.verify(serviceHub)
+        val selfSignedTx = serviceHub.signInitialTransaction(encumberedTransaction)
+        val signedTx = subFlow(
+            CollectSignaturesForComposites(
+                selfSignedTx,
+                listOf(exchangeRequestDTO.buyer as Party)
+            ))
+
+        // finalize
+        val sessions = listOf(initiateFlow(exchangeRequestDTO.buyer))
+        return subFlow(FinalityFlow(
+            transaction = signedTx,
+            sessions = sessions
+        ))
+    }
+
+    /**
+     * Add the encumbered tokens to the transaction builder based in [ExchangeRequestDTO]
+     * @param transactionBuilder to add the tokens to
+     * @param exchangeRequestDTO having information about the swap
+     * @param lockState to be used
+     * @param compositeKeyHolderParty having a [CompositeKey] of both the seller and the buyer with equal weights
+     */
+    @Suspendable
+    private fun addEncumberedTokensForSeller(
+        transactionBuilder: TransactionBuilder,
+        exchangeRequestDTO: ExchangeRequestDTO,
+        lockState: LockState,
+        compositeKeyHolderParty: AnonymousParty
+    ): TransactionBuilder {
+        return with(transactionBuilder) {
             when {
                 exchangeRequestDTO.sellerAsset.tokenType.isPointer() -> {
                     addMoveToken(
@@ -67,7 +108,6 @@ class OfferEncumberedTokens(
                         additionalKeys = listOf(exchangeRequestDTO.buyer.owningKey),
                         lockState = lockState
                     )
-
                 }
                 else -> flowFail("Unable to determine token type for seller. " +
                         "Offering encumbered tokens for custom token type is not supported")
@@ -76,22 +116,6 @@ class OfferEncumberedTokens(
             setTimeWindow(TimeWindow.untilOnly(validatedDraftTransferOfOwnership.tx.timeWindow?.untilTime!!.plusSeconds(
                 30)))
         }
-
-        encumberedTransaction.verify(serviceHub)
-
-        val selfSignedTx = serviceHub.signInitialTransaction(encumberedTransaction)
-
-        val signedTx = subFlow(
-            CollectSignaturesForComposites(
-                selfSignedTx,
-                listOf(exchangeRequestDTO.buyer as Party)
-            ))
-
-        val sessions = listOf(initiateFlow(exchangeRequestDTO.buyer))
-        return subFlow(FinalityFlow(
-            transaction = signedTx,
-            sessions = sessions
-        ))
     }
 }
 
