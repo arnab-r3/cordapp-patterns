@@ -11,6 +11,9 @@ import net.corda.core.identity.AbstractParty
 import net.corda.core.internal.uncheckedCast
 import net.corda.core.node.ServiceHub
 import net.corda.core.serialization.CordaSerializable
+import net.corda.core.serialization.deserialize
+import net.corda.core.serialization.serialize
+import net.corda.core.transactions.WireTransaction
 import java.util.*
 
 /**
@@ -67,19 +70,29 @@ data class ExchangeRequestDTO(
     val sellerAsset: ExchangeAsset<out TokenType>,
     val requestStatus: RequestStatus? = null,
     val reason: String? = null,
-    val txId: String? = null
+    val txId: String? = null,
+    val unsignedWireTransaction: WireTransaction? = null
 ) {
     companion object {
         fun fromExchangeRequestEntity(exchangeRequest: ExchangeRequest, serviceHub: ServiceHub): ExchangeRequestDTO =
             with(exchangeRequest) {
                 ExchangeRequestDTO(
-                    UUID.fromString(requestId),
-                    buyer,
-                    seller,
-                    ExchangeAsset.toAssetType(buyerAssetType, buyerAssetQty, buyerAssetClass, serviceHub),
-                    ExchangeAsset.toAssetType(buyerAssetType, sellerAssetQty, sellerAssetClass, serviceHub),
-                    requestStatus,
-                    txId)
+                    requestId = UUID.fromString(requestId),
+                    buyer = buyer,
+                    seller = seller,
+                    buyerAsset = ExchangeAsset.toAssetType(
+                        buyerAssetType,
+                        buyerAssetQty,
+                        buyerAssetClass,
+                        serviceHub),
+                    sellerAsset = ExchangeAsset.toAssetType(
+                        buyerAssetType,
+                        sellerAssetQty,
+                        sellerAssetClass,
+                        serviceHub),
+                    requestStatus = requestStatus,
+                    txId = txId,
+                    unsignedWireTransaction = unsignedTransaction?.deserialize())
             }
     }
 
@@ -93,7 +106,9 @@ data class ExchangeRequestDTO(
         sellerAssetQty = sellerAsset.amount?.quantity,
         requestStatus = requestStatus,
         buyerAssetClass = uncheckedCast(buyerAsset.tokenType.tokenClass),
-        sellerAssetClass = uncheckedCast(sellerAsset.tokenType.tokenClass)
+        sellerAssetClass = uncheckedCast(sellerAsset.tokenType.tokenClass),
+        reason = reason,
+        unsignedTransaction = unsignedWireTransaction?.serialize()?.bytes
     )
 
     fun approve(): ExchangeRequestDTO = this.copy(requestStatus = RequestStatus.APPROVED)

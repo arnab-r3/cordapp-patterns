@@ -14,14 +14,22 @@ import com.r3.corda.lib.tokens.workflows.internal.selection.generateMoveNonFungi
 import com.r3.corda.lib.tokens.workflows.types.PartyAndToken
 import com.r3.corda.lib.tokens.workflows.utilities.addTokenTypeJar
 import com.r3.demo.crossnotaryswap.contracts.LockContract
+import com.r3.demo.crossnotaryswap.flows.dto.ExchangeAsset
+import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
 import com.r3.demo.crossnotaryswap.states.LockState
+import com.r3.demo.generic.flowFail
 import net.corda.core.contracts.Amount
+import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.crypto.CompositeKey
+import net.corda.core.flows.FlowLogic
 import net.corda.core.identity.AbstractParty
 import net.corda.core.internal.requiredContractClassName
+import net.corda.core.internal.uncheckedCast
 import net.corda.core.node.ServiceHub
 import net.corda.core.transactions.TransactionBuilder
+import net.corda.core.transactions.WireTransaction
+import java.math.BigDecimal
 import java.security.PublicKey
 
 
@@ -156,4 +164,41 @@ fun TransactionBuilder.addMoveTokens(
     addTokenTypeJar(inputs.map { it.state.data } + outputs, this)
 
     return this
+}
+
+
+/**
+ * Verify the shared unsigned [WireTransaction] against the offer details from the buyer
+ * present in the [ExchangeRequestDTO]
+ * @param unsignedWireTx shared by the buyer
+ * @param exchangeAsset to be verified against present in the [ExchangeRequestDTO]
+ */
+@Suspendable
+fun FlowLogic<*>.verifySharedTransactionAgainstExchangeRequest(
+    exchangeAsset: ExchangeAsset<out TokenType>,
+    unsignedWireTx: WireTransaction
+) {
+    val sentAsset = unsignedWireTx.outputStates
+    if (exchangeAsset.amount != null && exchangeAsset.tokenType.isRegularTokenType()) {
+        val sentAmount = sentAsset
+            .map { uncheckedCast<ContractState, FungibleToken>(it) }
+            .filter {
+                it.holder == ourIdentity
+            }.fold(BigDecimal.ZERO) { acc, fungibleToken ->
+                fungibleToken.amount.toDecimal() + acc
+            }
+        if (sentAmount != exchangeAsset.amount.toDecimal())
+            flowFail("The shared unsigned transaction does not send the agreed amount of " +
+                    "shared tokens to $ourIdentity as agreed in Exchange Request; " +
+                    "Shared in unsigned tx: $sentAmount, Agreed: ${exchangeAsset.amount}")
+    } else if (exchangeAsset.tokenType.isPointer()) {
+        val sentNFTAsset = sentAsset
+            .map { uncheckedCast<ContractState, NonFungibleToken>(it) }
+            .filter { it.holder == ourIdentity }
+            .filter { it.token.tokenIdentifier == exchangeAsset.tokenType.tokenIdentifier }
+        if (sentNFTAsset.isEmpty())
+            flowFail("The shared unsigned transaction does not transfer " +
+                    "the token with id: ${exchangeAsset.tokenType.tokenIdentifier} to $ourIdentity" +
+                    "as agreed in the Exchange Request")
+    }
 }

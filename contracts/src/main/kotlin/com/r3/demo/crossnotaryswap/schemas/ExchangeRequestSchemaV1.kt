@@ -54,5 +54,53 @@ data class ExchangeRequest(
     var reason: String? = null,
 
     @Column(name = "tx_id", nullable = true)
-    var txId: String? = null
-)
+    var txId: String? = null,
+
+    @Lob
+    @Column(name = "transaction", nullable = true)
+    var unsignedTransaction: ByteArray?
+
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as ExchangeRequest
+
+        if (requestId != other.requestId) return false
+        if (buyer != other.buyer) return false
+        if (seller != other.seller) return false
+        if (buyerAssetType != other.buyerAssetType) return false
+        if (sellerAssetType != other.sellerAssetType) return false
+        if (buyerAssetQty != other.buyerAssetQty) return false
+        if (buyerAssetClass != other.buyerAssetClass) return false
+        if (sellerAssetClass != other.sellerAssetClass) return false
+        if (sellerAssetQty != other.sellerAssetQty) return false
+        if (requestStatus != other.requestStatus) return false
+        if (reason != other.reason) return false
+        if (txId != other.txId) return false
+        if (unsignedTransaction != null) {
+            if (other.unsignedTransaction == null) return false
+            if (!unsignedTransaction!!.contentEquals(other.unsignedTransaction!!)) return false
+        } else if (other.unsignedTransaction != null) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = requestId.hashCode()
+        result = 31 * result + buyer.hashCode()
+        result = 31 * result + seller.hashCode()
+        result = 31 * result + buyerAssetType.hashCode()
+        result = 31 * result + sellerAssetType.hashCode()
+        result = 31 * result + (buyerAssetQty?.hashCode() ?: 0)
+        result = 31 * result + buyerAssetClass.hashCode()
+        result = 31 * result + sellerAssetClass.hashCode()
+        result = 31 * result + (sellerAssetQty?.hashCode() ?: 0)
+        result = 31 * result + (requestStatus?.hashCode() ?: 0)
+        result = 31 * result + (reason?.hashCode() ?: 0)
+        result = 31 * result + (txId?.hashCode() ?: 0)
+        result = 31 * result + (unsignedTransaction?.contentHashCode() ?: 0)
+        return result
+    }
+}

@@ -1,5 +1,6 @@
 package com.r3.demo.crossnotaryswap.services
 
+import co.paralleluniverse.fibers.Suspendable
 import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.workflows.utilities.heldTokensByToken
 import com.r3.corda.lib.tokens.workflows.utilities.tokenBalance
@@ -62,7 +63,7 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
      * @param requestId to be modified
      * @param txId to be updated in the [ExchangeRequest]
      */
-    fun setTxId(requestId: String, txId: String) {
+    fun setTxDetails(requestId: String, txId: String, tx: ByteArray) {
         val request = getRequestEntityById(requestId)
         appServiceHub.withEntityManager {
             if (request.requestStatus != null || request.requestStatus == RequestStatus.REQUESTED) {
@@ -71,6 +72,7 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
                 flowFail("Transaction id has already been set for request id $requestId")
             }
             request.txId = txId
+            request.unsignedTransaction = tx
             merge(request)
         }
     }
@@ -121,6 +123,7 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
      * Checks if the specified asset is owned by our identity
      * @param exchangeAsset to be checked against our vault
      */
+    @Suspendable
     fun isExchangeAssetOwned(exchangeAsset: ExchangeAsset<out TokenType>): Boolean {
 
         val (_, amount) = exchangeAsset.toTokenIdentifierAndAmount()
@@ -132,5 +135,23 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
             val tokenBalance = appServiceHub.vaultService.tokenBalance(exchangeAsset.tokenType)
             tokenBalance.quantity >= amount
         } else argFail("Cannot determine token type. It needs to be either a regular token type or a token pointer")
+    }
+
+    /**
+     * Find the [ExchangeRequest] entity with the transaction id and convert it into a [ExchangeRequestDTO]
+     * @param transactionId to fetch the [ExchangeRequest] by
+     */
+    @Suspendable
+    fun getExchangeRequestByTxId(transactionId: String): ExchangeRequestDTO {
+        val queryResults = appServiceHub.withEntityManager {
+            val query = criteriaBuilder.createQuery(ExchangeRequest::class.java).apply {
+                val root = from(ExchangeRequest::class.java)
+                val txIdEqPredicate = criteriaBuilder.equal(root.get<String>("txId"), transactionId)
+                where(criteriaBuilder.and(txIdEqPredicate))
+                select(root)
+            }
+            createQuery(query).resultList
+        }
+        return ExchangeRequestDTO.fromExchangeRequestEntity(queryResults.first(), appServiceHub)
     }
 }
