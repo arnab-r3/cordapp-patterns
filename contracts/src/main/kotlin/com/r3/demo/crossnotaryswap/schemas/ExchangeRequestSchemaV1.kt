@@ -38,14 +38,6 @@ class ExchangeRequest(
     @Column(name = "buyer_asset_qty", nullable = true)
     var buyerAssetQty: Long? = null,
 
-    @Column(name = "buyer_asset_class", nullable = true)
-    @Convert(converter = ExchangeRequestClassConverter::class)
-    val buyerAssetClass: Class<*>? = null,
-
-    @Column(name = "seller_asset_class", nullable = true)
-    @Convert(converter = ExchangeRequestClassConverter::class)
-    var sellerAssetClass: Class<*>? = null,
-
     @Column(name = "seller_asset_qty", nullable = true)
     var sellerAssetQty: Long? = null,
 
@@ -76,8 +68,6 @@ class ExchangeRequest(
         if (buyerAssetType != other.buyerAssetType) return false
         if (sellerAssetType != other.sellerAssetType) return false
         if (buyerAssetQty != other.buyerAssetQty) return false
-        if (buyerAssetClass != other.buyerAssetClass) return false
-        if (sellerAssetClass != other.sellerAssetClass) return false
         if (sellerAssetQty != other.sellerAssetQty) return false
         if (requestStatus != other.requestStatus) return false
         if (reason != other.reason) return false
@@ -97,26 +87,12 @@ class ExchangeRequest(
         result = 31 * result + buyerAssetType.hashCode()
         result = 31 * result + sellerAssetType.hashCode()
         result = 31 * result + (buyerAssetQty?.hashCode() ?: 0)
-        result = 31 * result + (buyerAssetClass?.hashCode() ?: 0)
-        result = 31 * result + (sellerAssetClass?.hashCode() ?: 0)
         result = 31 * result + (sellerAssetQty?.hashCode() ?: 0)
         result = 31 * result + (requestStatus?.hashCode() ?: 0)
         result = 31 * result + (reason?.hashCode() ?: 0)
         result = 31 * result + (txId?.hashCode() ?: 0)
         result = 31 * result + (unsignedTransaction?.contentHashCode() ?: 0)
         return result
-    }
-}
-
-class ExchangeRequestClassConverter : AttributeConverter<Class<*>, String> {
-    override fun convertToDatabaseColumn(attribute: Class<*>?): String? {
-        return attribute?.name
-    }
-
-    override fun convertToEntityAttribute(dbData: String?): Class<*>? {
-        return if (dbData != null)
-            Class.forName(dbData)
-        else null
     }
 }
 

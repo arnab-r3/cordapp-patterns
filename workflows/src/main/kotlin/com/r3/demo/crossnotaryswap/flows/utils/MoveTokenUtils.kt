@@ -48,8 +48,7 @@ fun TransactionBuilder.addMoveToken(
 
     val tokenType = TokenRegistry.getInstance(
         tokenIdentifier = tokenIdentifier,
-        serviceHub = serviceHub,
-        tokenClass = tokenClass)
+        serviceHub = serviceHub)
     val partyAndToken = PartyAndToken(
         party = holder,
         token = tokenType)
