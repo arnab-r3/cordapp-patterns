@@ -1,22 +1,23 @@
 package com.r3.demo.crossnotaryswap.schemas
 
-import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
 import com.r3.demo.crossnotaryswap.types.RequestStatus
 import net.corda.core.identity.AbstractParty
 import net.corda.core.schemas.MappedSchema
+import net.corda.core.serialization.CordaSerializable
 import java.util.*
 import javax.persistence.*
 
 object ExchangeRequestSchema
 
-class ExchangeRequestSchemaV1: MappedSchema(
+object ExchangeRequestSchemaV1 : MappedSchema(
     schemaFamily = ExchangeRequestSchema::class.java,
     version = 1,
     mappedTypes = listOf(ExchangeRequest::class.java)
 )
 
 @Entity
-data class ExchangeRequest(
+@CordaSerializable
+class ExchangeRequest(
 
     @Id
     @Column(name = "request_id", nullable = false)
@@ -35,22 +36,24 @@ data class ExchangeRequest(
     var sellerAssetType: String,
 
     @Column(name = "buyer_asset_qty", nullable = true)
-    var buyerAssetQty: Long?,
+    var buyerAssetQty: Long? = null,
 
     @Column(name = "buyer_asset_class", nullable = true)
-    val buyerAssetClass: Class<out EvolvableTokenType>,
+    @Convert(converter = ExchangeRequestClassConverter::class)
+    val buyerAssetClass: Class<*>? = null,
 
     @Column(name = "seller_asset_class", nullable = true)
-    var sellerAssetClass: Class<out EvolvableTokenType>,
+    @Convert(converter = ExchangeRequestClassConverter::class)
+    var sellerAssetClass: Class<*>? = null,
 
     @Column(name = "seller_asset_qty", nullable = true)
-    var sellerAssetQty: Long?,
+    var sellerAssetQty: Long? = null,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "request_status", nullable = true, length = 12)
     var requestStatus: RequestStatus? = null,
 
-    @Column(name="reason", nullable = true)
+    @Column(name = "reason", nullable = true)
     var reason: String? = null,
 
     @Column(name = "tx_id", nullable = true)
@@ -58,7 +61,7 @@ data class ExchangeRequest(
 
     @Lob
     @Column(name = "transaction", nullable = true)
-    var unsignedTransaction: ByteArray?
+    var unsignedTransaction: ByteArray? = null
 
 ) {
     override fun equals(other: Any?): Boolean {
@@ -94,8 +97,8 @@ data class ExchangeRequest(
         result = 31 * result + buyerAssetType.hashCode()
         result = 31 * result + sellerAssetType.hashCode()
         result = 31 * result + (buyerAssetQty?.hashCode() ?: 0)
-        result = 31 * result + buyerAssetClass.hashCode()
-        result = 31 * result + sellerAssetClass.hashCode()
+        result = 31 * result + (buyerAssetClass?.hashCode() ?: 0)
+        result = 31 * result + (sellerAssetClass?.hashCode() ?: 0)
         result = 31 * result + (sellerAssetQty?.hashCode() ?: 0)
         result = 31 * result + (requestStatus?.hashCode() ?: 0)
         result = 31 * result + (reason?.hashCode() ?: 0)
@@ -104,3 +107,16 @@ data class ExchangeRequest(
         return result
     }
 }
+
+class ExchangeRequestClassConverter : AttributeConverter<Class<*>, String> {
+    override fun convertToDatabaseColumn(attribute: Class<*>?): String? {
+        return attribute?.name
+    }
+
+    override fun convertToEntityAttribute(dbData: String?): Class<*>? {
+        return if (dbData != null)
+            Class.forName(dbData)
+        else null
+    }
+}
+

@@ -1,6 +1,6 @@
 package com.r3.demo.crossnotaryswap.flows.utils
 
-import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
+import com.r3.corda.lib.tokens.contracts.states.NonFungibleToken
 import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.contracts.utilities.amount
 import com.r3.corda.lib.tokens.money.FiatCurrency
@@ -30,31 +30,27 @@ class TokenRegistry {
 
         fun getInstance(
             tokenIdentifier: String,
-            serviceHub: ServiceHub,
-            tokenClass: Class<out EvolvableTokenType>?
+            serviceHub: ServiceHub
         ): TokenType {
-            return when {
-                tokenClass != null -> {
-                    val queryCriteria = QueryCriteria
-                        .LinearStateQueryCriteria(
-                            linearId = listOf(UniqueIdentifier.fromString(tokenIdentifier)),
-                            contractStateTypes = setOf(tokenClass)
-                        )
-
-                    val evolvableTokens = serviceHub.vaultService.queryBy(tokenClass, queryCriteria)
-                    require(evolvableTokens.states.isNotEmpty())
-                        { "Cannot find any NFT with identifier $tokenIdentifier and class type $tokenClass" }
-                    evolvableTokens.states.single().state.data.toPointer(tokenClass)
-
-                }
-                else -> registry[tokenIdentifier]
-                    ?: argFail("Cannot find currency type with token identifier: $tokenIdentifier")
+            return if (registry[tokenIdentifier] != null) {
+                registry[tokenIdentifier]!!
+            } else {
+                val queryCriteria = QueryCriteria
+                    .LinearStateQueryCriteria(
+                        linearId = listOf(UniqueIdentifier.fromString(tokenIdentifier)),
+                        contractStateTypes = setOf(NonFungibleToken::class.java)
+                    )
+                val nonFungibleTokenPages =
+                    serviceHub.vaultService.queryBy(NonFungibleToken::class.java, queryCriteria)
+                require(nonFungibleTokenPages.states.isNotEmpty())
+                { "Cannot find any token with identifier $tokenIdentifier" }
+                nonFungibleTokenPages.states.single().state.data.token.tokenType
             }
         }
+    }
 
-        fun getTokenAbbreviation(clazz: Class<*>): String {
-            return currencyClassMap[clazz] ?: throw IllegalArgumentException("$clazz does not exist.")
-        }
+    fun getTokenAbbreviation(clazz: Class<*>): String {
+        return currencyClassMap[clazz] ?: throw IllegalArgumentException("$clazz does not exist.")
     }
 }
 

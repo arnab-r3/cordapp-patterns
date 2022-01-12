@@ -1,14 +1,11 @@
 package com.r3.demo.crossnotaryswap.flows.dto
 
-import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
 import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.demo.crossnotaryswap.flows.utils.TokenRegistry
 import com.r3.demo.crossnotaryswap.schemas.ExchangeRequest
 import com.r3.demo.crossnotaryswap.types.RequestStatus
-import com.r3.demo.generic.argFail
 import net.corda.core.contracts.Amount
 import net.corda.core.identity.AbstractParty
-import net.corda.core.internal.uncheckedCast
 import net.corda.core.node.ServiceHub
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.serialization.deserialize
@@ -29,10 +26,9 @@ open class ExchangeAsset<T : TokenType>(
         fun toAssetType(
             tokenIdentifier: String,
             amount: Long? = null,
-            tokenClass: Class<out EvolvableTokenType>?,
             serviceHub: ServiceHub
         ): ExchangeAsset<out TokenType> {
-            val tokenType = TokenRegistry.getInstance(tokenIdentifier, serviceHub, tokenClass)
+            val tokenType = TokenRegistry.getInstance(tokenIdentifier, serviceHub)
             return amount?.let {
                 ExchangeAsset(tokenType = tokenType, amount = Amount(amount, tokenType))
             } ?: ExchangeAsset(tokenType = tokenType)
@@ -40,16 +36,9 @@ open class ExchangeAsset<T : TokenType>(
     }
 
     fun toTokenIdentifierAndAmount(): Pair<String, Long?> {
-        val tokenIdentifier = with(tokenType) {
-            when {
-                isRegularTokenType() -> tokenIdentifier
-                isPointer() -> TokenRegistry.getTokenAbbreviation(tokenClass)
-                else -> argFail("Unable to determine tokenType. Should be either token pointer or regular token")
-            }
-        }
         return if (amount != null) {
-            tokenIdentifier to amount.quantity
-        } else tokenIdentifier to null
+            tokenType.tokenIdentifier to amount.quantity
+        } else tokenType.tokenIdentifier to null
     }
 
     override fun toString(): String {
@@ -74,6 +63,7 @@ data class ExchangeRequestDTO(
     val unsignedWireTransaction: WireTransaction? = null
 ) {
     companion object {
+
         fun fromExchangeRequestEntity(exchangeRequest: ExchangeRequest, serviceHub: ServiceHub): ExchangeRequestDTO =
             with(exchangeRequest) {
                 ExchangeRequestDTO(
@@ -83,12 +73,10 @@ data class ExchangeRequestDTO(
                     buyerAsset = ExchangeAsset.toAssetType(
                         buyerAssetType,
                         buyerAssetQty,
-                        buyerAssetClass,
                         serviceHub),
                     sellerAsset = ExchangeAsset.toAssetType(
-                        buyerAssetType,
+                        sellerAssetType,
                         sellerAssetQty,
-                        sellerAssetClass,
                         serviceHub),
                     requestStatus = requestStatus,
                     txId = txId,
@@ -105,8 +93,6 @@ data class ExchangeRequestDTO(
         buyerAssetQty = buyerAsset.amount?.quantity,
         sellerAssetQty = sellerAsset.amount?.quantity,
         requestStatus = requestStatus,
-        buyerAssetClass = uncheckedCast(buyerAsset.tokenType.tokenClass),
-        sellerAssetClass = uncheckedCast(sellerAsset.tokenType.tokenClass),
         reason = reason,
         unsignedTransaction = unsignedWireTransaction?.serialize()?.bytes
     )

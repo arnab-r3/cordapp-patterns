@@ -97,9 +97,7 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
             sellerAsset = sellerAsset,
             requestStatus = RequestStatus.REQUESTED
         )
-        appServiceHub.withEntityManager {
-            persist(exchangeRequestDTO.toExchangeRequestEntity())
-        }
+        newExchangeRequestFromDto(exchangeRequestDTO)
         return exchangeRequestDTO
     }
 

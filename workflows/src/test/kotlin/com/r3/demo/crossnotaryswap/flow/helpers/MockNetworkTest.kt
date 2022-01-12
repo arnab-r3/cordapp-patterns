@@ -10,7 +10,10 @@ import org.junit.Rule
 import org.junit.rules.Timeout
 import java.util.concurrent.TimeUnit
 
-abstract class MockNetworkTest(private val nodeNames: List<CordaX500Name>, private val notaryNames: List<CordaX500Name>) {
+abstract class MockNetworkTest(
+    private val nodeNames: List<CordaX500Name>,
+    private val notaryNames: List<CordaX500Name>
+) {
 
     @get:Rule
     val timeoutRule = Timeout(5, TimeUnit.MINUTES)
@@ -60,12 +63,22 @@ abstract class MockNetworkTest(private val nodeNames: List<CordaX500Name>, priva
 
     @Before
     fun setupNetwork() {
-        nodes = nodeNames.map { network.createPartyNode(it) }
+        nodes = nodeNames.map {
+            network.createNode(
+                legalName = it,
+                configOverrides = MockNodeConfigOverrides(extraDataSourceProperties = mapOf(
+                    "maximumPoolSize" to "20",
+                    "connectionTimeout" to "300000",
+                    "minimumIdle" to "20",
+                    "maxLifetime" to "600000"
+                ))
+            )
+        }
         val nodeMap = LinkedHashMap<String, StartedMockNode>()
-        nodes.forEach{  node ->
+        nodes.forEach { node ->
             nodeMap[node.info.chooseIdentity().name.organisation] = node
         }
-        network.notaryNodes.forEach{ node ->
+        network.notaryNodes.forEach { node ->
             nodeMap[node.info.chooseIdentity().name.organisation] = node
         }
         nodesByName = nodeMap

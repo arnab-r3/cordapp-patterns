@@ -32,15 +32,13 @@ object InitiateExchangeFlows {
     class ExchangeRequesterFlow(
         private val sellerParty: AbstractParty,
         private val sellerTokenIdentifier: String,
-        private val sellerTokenClass: Class<out EvolvableTokenType>? = null,
         private val sellerTokenAmount: Long? = null,
         private val buyerTokenIdentifier: String,
-        private val buyerTokenClass: Class<out EvolvableTokenType>? = null,
         private val buyerTokenAmount: Long? = null
-    ) : FlowLogic<Unit>() {
+    ) : FlowLogic<String>() {
 
         @Suspendable
-        override fun call() {
+        override fun call(): String {
 
             val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
 
@@ -61,6 +59,8 @@ object InitiateExchangeFlows {
             exchangeService.newExchangeRequestFromDto(exchangeRequestDto)
             val sellerSession = initiateFlow(sellerParty)
             sellerSession.send(exchangeRequestDto)
+
+            return exchangeRequestDto.requestId.toString()
         }
 
     }
