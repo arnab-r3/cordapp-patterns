@@ -3,6 +3,8 @@ package com.r3.demo.crossnotaryswap.flows
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.corda.lib.tokens.workflows.utilities.toParty
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
+import com.r3.demo.crossnotaryswap.flows.dto.FungibleAssetRequest
+import com.r3.demo.crossnotaryswap.flows.dto.NonFungibleAssetRequest
 import com.r3.demo.crossnotaryswap.flows.utils.addMoveToken
 import com.r3.demo.crossnotaryswap.flows.utils.addMoveTokens
 import com.r3.demo.crossnotaryswap.flows.utils.registerCompositeKey
@@ -19,7 +21,6 @@ import net.corda.core.crypto.SignatureMetadata
 import net.corda.core.flows.*
 import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
-import net.corda.core.internal.uncheckedCast
 import net.corda.core.node.StatesToRecord
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
@@ -41,6 +42,8 @@ class OfferEncumberedTokens(
     @Suspendable
     override fun call(): SignedTransaction {
 
+        val exchangeRequestService = serviceHub.cordaService(ExchangeRequestService::class.java)
+
         val buyerParty = exchangeRequestDTO.buyer.toParty(serviceHub)
 
         // create the composite key to transfer the seller asset to. This is to enable equal control of both the
@@ -51,9 +54,10 @@ class OfferEncumberedTokens(
         // create the lock state that will encumber all tokens/states that the seller will transfer
         val lockState = LockState(validatedDraftTransferOfOwnership, ourIdentity, buyerParty)
 
+        val tokenTypeForSeller = exchangeRequestService.getTokenTypeFromAssetRequest(exchangeRequestDTO.sellerAssetRequest)
         //prepare the transaction
         val transactionBuilder =
-            TransactionBuilder(notary = getPreferredNotaryForToken(exchangeRequestDTO.sellerAssetRequest.tokenType))
+            TransactionBuilder(notary = getPreferredNotaryForToken(tokenTypeForSeller))
 
         // construct the transaction that encumbers all states on the lock state based on the exchange request
         val encumberedTransaction =
@@ -92,20 +96,19 @@ class OfferEncumberedTokens(
         compositeKeyHolderParty: AnonymousParty
     ): TransactionBuilder {
         return with(transactionBuilder) {
-            when {
-                exchangeRequestDTO.sellerAssetRequest.tokenType.isPointer() -> {
+            when (exchangeRequestDTO.sellerAssetRequest) {
+                is NonFungibleAssetRequest -> {
                     addMoveToken(
                         serviceHub = serviceHub,
-                        tokenIdentifier = exchangeRequestDTO.sellerAssetRequest.tokenType.tokenIdentifier,
-                        tokenClass = uncheckedCast(exchangeRequestDTO.sellerAssetRequest.tokenType.tokenClass),
+                        tokenIdentifier = exchangeRequestDTO.sellerAssetRequest.tokenIdentifier.toString(),
                         holder = compositeKeyHolderParty,
                         additionalKeys = listOf(exchangeRequestDTO.buyer.owningKey),
                         lockState = lockState
                     )
                 }
-                exchangeRequestDTO.sellerAssetRequest.tokenType.isRegularTokenType() -> {
+                is FungibleAssetRequest -> {
                     addMoveTokens(serviceHub = serviceHub,
-                        amount = uncheckedCast(exchangeRequestDTO.sellerAssetRequest.amount),
+                        amount = exchangeRequestDTO.sellerAssetRequest.tokenAmount,
                         holder = compositeKeyHolderParty,
                         changeHolder = ourIdentity,
                         additionalKeys = listOf(exchangeRequestDTO.buyer.owningKey),

@@ -7,6 +7,8 @@ import com.r3.corda.lib.tokens.workflows.flows.move.addMoveNonFungibleTokens
 import com.r3.corda.lib.tokens.workflows.types.PartyAndAmount
 import com.r3.corda.lib.tokens.workflows.types.PartyAndToken
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
+import com.r3.demo.crossnotaryswap.flows.dto.FungibleAssetRequest
+import com.r3.demo.crossnotaryswap.flows.dto.NonFungibleAssetRequest
 import com.r3.demo.crossnotaryswap.flows.utils.generateWireTransactionMerkleTree
 import com.r3.demo.crossnotaryswap.flows.utils.getDependencies
 import com.r3.demo.crossnotaryswap.flows.utils.verifySharedTransactionAgainstExchangeRequest
@@ -41,8 +43,9 @@ class DraftTransferOfOwnershipFlow(
         val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
         val exchangeRequestDto = exchangeService.getRequestById(requestId)
 
+        val tokenTypeForBuyer = exchangeService.getTokenTypeFromAssetRequest(exchangeRequestDto.buyerAssetRequest)
         // construct the unsigned wire transaction
-        val transactionBuilder = TransactionBuilder(getPreferredNotaryForToken(exchangeRequestDto.buyerAssetRequest.tokenType))
+        val transactionBuilder = TransactionBuilder(getPreferredNotaryForToken(tokenTypeForBuyer))
         val constructedTxForTransfer =
             addBuyerAssetToTransactionBuilder(transactionBuilder, exchangeRequestDto)
 
@@ -78,30 +81,35 @@ class DraftTransferOfOwnershipFlow(
         transactionBuilder: TransactionBuilder,
         exchangeRequestDto: ExchangeRequestDTO
     ): TransactionBuilder {
-        val buyerAsset = exchangeRequestDto.buyerAssetRequest
         val seller = exchangeRequestDto.seller
-        return when {
-            // add the move tokens if it is a nft
-            buyerAsset.tokenType.isRegularTokenType() -> {
-                val tokenType = exchangeRequestDto.buyerAssetRequest.tokenType
-                val amount = exchangeRequestDto.buyerAssetRequest.amount!!.quantity
-                val partyAndAmount = PartyAndAmount(seller, amount of tokenType)
-                addMoveFungibleTokens(
-                    transactionBuilder = transactionBuilder,
-                    serviceHub = serviceHub,
-                    partiesAndAmounts = listOf(partyAndAmount),
-                    changeHolder = exchangeRequestDto.buyer,
-                    queryCriteria = null)
+        return with (exchangeRequestDto.buyerAssetRequest) {
+            when (this) {
+                /* add the move tokens if it is a nft*/
+                is FungibleAssetRequest -> {
+                    val tokenType = tokenAmount.token
+                    val amount = tokenAmount.quantity
+                    val partyAndAmount = PartyAndAmount(seller, amount of tokenType)
+                    addMoveFungibleTokens(
+                        transactionBuilder = transactionBuilder,
+                        serviceHub = serviceHub,
+                        partiesAndAmounts = listOf(partyAndAmount),
+                        changeHolder = exchangeRequestDto.buyer,
+                        queryCriteria = null)
+                }
+                // add the move tokens if it is a fungible token
+                is NonFungibleAssetRequest -> {
+                    val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
+                    val matchingAssetsAgainstRequest =
+                        exchangeService.getMatchingAssetsAgainstRequest(this, exchangeRequestDto.buyer).states.single()
+                    val tokenType = matchingAssetsAgainstRequest.state.data.tokenType
+                    val partyAndToken = PartyAndToken(seller, tokenType)
+                    addMoveNonFungibleTokens(
+                        transactionBuilder = transactionBuilder,
+                        serviceHub = serviceHub,
+                        partyAndToken = partyAndToken)
+                }
+                else -> flowFail("Cannot support move operation for a token which is neither a Regular token or a NFT")
             }
-            // add the move tokens if it is a fungible token
-            buyerAsset.tokenType.isPointer() -> {
-                val partyAndToken = PartyAndToken(seller, exchangeRequestDto.buyerAssetRequest.tokenType)
-                addMoveNonFungibleTokens(
-                    transactionBuilder = transactionBuilder,
-                    serviceHub = serviceHub,
-                    partyAndToken = partyAndToken)
-            }
-            else -> flowFail("Cannot support move operation for a token which is neither a Regular token or a NFT")
         }
     }
 }

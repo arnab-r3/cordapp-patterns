@@ -1,19 +1,27 @@
 package com.r3.demo.crossnotaryswap.services
 
 import co.paralleluniverse.fibers.Suspendable
+import com.r3.corda.lib.tokens.contracts.states.AbstractToken
+import com.r3.corda.lib.tokens.contracts.states.FungibleToken
+import com.r3.corda.lib.tokens.contracts.states.NonFungibleToken
 import com.r3.corda.lib.tokens.contracts.types.TokenType
-import com.r3.corda.lib.tokens.workflows.utilities.heldTokensByToken
-import com.r3.corda.lib.tokens.workflows.utilities.tokenBalance
-import com.r3.demo.crossnotaryswap.flows.dto.AssetRequest
+import com.r3.corda.lib.tokens.workflows.utilities.heldTokenAmountCriteria
+import com.r3.corda.lib.tokens.workflows.utilities.rowsToAmount
+import com.r3.demo.crossnotaryswap.flows.dto.AbstractAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
+import com.r3.demo.crossnotaryswap.flows.dto.FungibleAssetRequest
+import com.r3.demo.crossnotaryswap.flows.dto.NonFungibleAssetRequest
 import com.r3.demo.crossnotaryswap.schemas.ExchangeRequest
-import com.r3.demo.crossnotaryswap.types.AssetRequestType
 import com.r3.demo.crossnotaryswap.types.RequestStatus
 import com.r3.demo.generic.argFail
 import com.r3.demo.generic.flowFail
+import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.identity.AbstractParty
+import net.corda.core.internal.uncheckedCast
 import net.corda.core.node.AppServiceHub
 import net.corda.core.node.services.CordaService
+import net.corda.core.node.services.Vault
+import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.serialization.SingletonSerializeAsToken
 import net.corda.core.utilities.contextLogger
 
@@ -23,6 +31,7 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
     companion object {
         val logger = contextLogger()
     }
+
     /**
      * Get Exchange request by requestId
      */
@@ -82,29 +91,29 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
         }
     }
 
-    /**
-     * Create a new [ExchangeRequest] in the exchange_request table in the db of the local node
-     * @param buyer party
-     * @param seller party
-     * @param buyerAssetRequest details containing the token name and optional amount
-     * @param sellerAssetRequest details containing the token name and the optional amount
-     */
-    fun newExchangeRequest(
-        buyer: AbstractParty,
-        seller: AbstractParty,
-        buyerAssetRequest: AssetRequest,
-        sellerAssetRequest: AssetRequest
-    ): ExchangeRequestDTO {
-        val exchangeRequestDTO = ExchangeRequestDTO(
-            buyer = buyer,
-            seller = seller,
-            buyerAssetRequest = buyerAssetRequest,
-            sellerAssetRequest = sellerAssetRequest,
-            requestStatus = RequestStatus.REQUESTED
-        )
-        newExchangeRequestFromDto(exchangeRequestDTO)
-        return exchangeRequestDTO
-    }
+//    /**
+//     * Create a new [ExchangeRequest] in the exchange_request table in the db of the local node
+//     * @param buyer party
+//     * @param seller party
+//     * @param buyerDBAssetRequest details containing the token name and optional amount
+//     * @param sellerDBAssetRequest details containing the token name and the optional amount
+//     */
+//    fun newExchangeRequest(
+//        buyer: AbstractParty,
+//        seller: AbstractParty,
+//        buyerDBAssetRequest: ,
+//        sellerDBAssetRequest: DBAssetRequest
+//    ): ExchangeRequestDTO {
+//        val exchangeRequestDTO = ExchangeRequestDTO(
+//            buyer = buyer,
+//            seller = seller,
+//            buyerAssetRequest = buyerDBAssetRequest,
+//            sellerAssetRequest = sellerDBAssetRequest,
+//            requestStatus = RequestStatus.REQUESTED
+//        )
+//        newExchangeRequestFromDto(exchangeRequestDTO)
+//        return exchangeRequestDTO
+//    }
 
 
     /**
@@ -125,23 +134,78 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
 
     /**
      * Checks if the specified asset is owned by our identity
-     * @param assetRequest to be checked against our vault
+     * @param abstractAssetRequest to be checked against our vault
+     * @param ourIdentity the identity to be checked against
      */
     @Suspendable
-    fun isExchangeAssetOwned(assetRequest: AssetRequest): Boolean {
+    fun isExchangeAssetOwned(abstractAssetRequest: AbstractAssetRequest, ourIdentity: AbstractParty): Boolean {
 
-        return when(assetRequest.assetRequestType) {
-            AssetRequestType.FUNGIBLE_ASSET_REQUEST -> {},
-            AssetRequestType.NON_FUNGIBLE_ASSET_REQUEST -> {}
+        return with(abstractAssetRequest) {
+            when (this) {
+                is FungibleAssetRequest -> {
+                    val matchingAssetsAgainstRequest =
+                        getMatchingAssetsAgainstRequest(abstractAssetRequest, ourIdentity)
+                    rowsToAmount(tokenAmount.token, uncheckedCast(matchingAssetsAgainstRequest)) >= tokenAmount
+                }
+                is NonFungibleAssetRequest -> {
+                    val nonFungibleToken: Vault.Page<NonFungibleToken> =
+                        uncheckedCast(getMatchingAssetsAgainstRequest(abstractAssetRequest, ourIdentity))
+                    nonFungibleToken.states.single().state.data.holder == ourIdentity
+                }
+                else -> argFail("Cannot determine asset request type. It needs to be either a regular fungible or non fungible asset")
+            }
         }
+    }
 
-        return if (assetRequest.tokenType.isPointer()) {
-            val heldTokensByToken = appServiceHub.vaultService.heldTokensByToken(assetRequest.tokenType)
-            heldTokensByToken.states.isNotEmpty()
-        } else if (assetRequest.tokenType.isRegularTokenType() && amount != null) {
-            val tokenBalance = appServiceHub.vaultService.tokenBalance(assetRequest.tokenType)
-            tokenBalance.quantity >= amount
-        } else argFail("Cannot determine token type. It needs to be either a regular token type or a token pointer")
+    /**
+     * Get matching Assets from an [AbstractAssetRequest]
+     * @param abstractAssetRequest to use to search
+     * @param holder of the asset
+     */
+    fun getMatchingAssetsAgainstRequest(
+        abstractAssetRequest: AbstractAssetRequest,
+        holder: AbstractParty
+    ): Vault.Page<AbstractToken> {
+        return with(abstractAssetRequest) {
+            when (this) {
+                is FungibleAssetRequest -> {
+                    val heldTokenCriteria = heldTokenAmountCriteria(tokenAmount.token, holder)
+                    appServiceHub.vaultService.queryBy(FungibleToken::class.java, heldTokenCriteria)
+                }
+                is NonFungibleAssetRequest -> {
+                    val query = QueryCriteria.LinearStateQueryCriteria(
+                        linearId = listOf(UniqueIdentifier.fromString(tokenIdentifier)),
+                        status = Vault.StateStatus.UNCONSUMED,
+                        relevancyStatus = Vault.RelevancyStatus.RELEVANT
+                    )
+                    appServiceHub.vaultService.queryBy(NonFungibleToken::class.java, query)
+
+                }
+                else -> argFail("Cannot determine asset request type. It needs to be either a regular fungible or non fungible asset")
+            }
+        }
+    }
+
+    /**
+     * Find out the relevant [TokenType] from the [AbstractAssetRequest]
+     * @param abstractAssetRequest to use
+     */
+    fun getTokenTypeFromAssetRequest(abstractAssetRequest: AbstractAssetRequest) : TokenType {
+        return with(abstractAssetRequest){
+            when(this) {
+                is FungibleAssetRequest -> tokenAmount.token
+                is NonFungibleAssetRequest -> {
+                    val query = QueryCriteria.LinearStateQueryCriteria(
+                        linearId = listOf(UniqueIdentifier.fromString(tokenIdentifier)),
+                        status = Vault.StateStatus.UNCONSUMED,
+                        relevancyStatus = Vault.RelevancyStatus.ALL
+                    )
+                    val queryBy = appServiceHub.vaultService.queryBy(NonFungibleToken::class.java, query)
+                    queryBy.states.single().state.data.token
+                }
+                else -> argFail("Cannot determine asset request type. It needs to be either a regular fungible or non fungible asset")
+            }
+        }
     }
 
     /**

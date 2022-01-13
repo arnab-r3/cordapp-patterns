@@ -3,7 +3,6 @@ package com.r3.demo.crossnotaryswap.flows.utils
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.corda.lib.tokens.contracts.commands.MoveTokenCommand
 import com.r3.corda.lib.tokens.contracts.states.AbstractToken
-import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
 import com.r3.corda.lib.tokens.contracts.states.FungibleToken
 import com.r3.corda.lib.tokens.contracts.states.NonFungibleToken
 import com.r3.corda.lib.tokens.contracts.types.IssuedTokenType
@@ -14,8 +13,10 @@ import com.r3.corda.lib.tokens.workflows.internal.selection.generateMoveNonFungi
 import com.r3.corda.lib.tokens.workflows.types.PartyAndToken
 import com.r3.corda.lib.tokens.workflows.utilities.addTokenTypeJar
 import com.r3.demo.crossnotaryswap.contracts.LockContract
-import com.r3.demo.crossnotaryswap.flows.dto.AssetRequest
+import com.r3.demo.crossnotaryswap.flows.dto.AbstractAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
+import com.r3.demo.crossnotaryswap.flows.dto.FungibleAssetRequest
+import com.r3.demo.crossnotaryswap.flows.dto.NonFungibleAssetRequest
 import com.r3.demo.crossnotaryswap.states.LockState
 import com.r3.demo.generic.flowFail
 import net.corda.core.contracts.Amount
@@ -40,7 +41,6 @@ import java.security.PublicKey
 fun TransactionBuilder.addMoveToken(
     serviceHub: ServiceHub,
     tokenIdentifier: String,
-    tokenClass: Class<out EvolvableTokenType>,
     holder: AbstractParty,
     additionalKeys: List<PublicKey>,
     lockState: LockState?
@@ -170,15 +170,15 @@ fun TransactionBuilder.addMoveTokens(
  * Verify the shared unsigned [WireTransaction] against the offer details from the buyer
  * present in the [ExchangeRequestDTO]
  * @param unsignedWireTx shared by the buyer
- * @param assetRequest to be verified against present in the [ExchangeRequestDTO]
+ * @param DBAssetRequest to be verified against present in the [ExchangeRequestDTO]
  */
 @Suspendable
 fun FlowLogic<*>.verifySharedTransactionAgainstExchangeRequest(
-    assetRequest: AssetRequest<out TokenType>,
+    abstractAssetRequest: AbstractAssetRequest,
     unsignedWireTx: WireTransaction
 ) {
     val sentAsset = unsignedWireTx.outputStates
-    if (assetRequest.amount != null && assetRequest.tokenType.isRegularTokenType()) {
+    if (abstractAssetRequest is FungibleAssetRequest) {
         val sentAmount = sentAsset
             .map { uncheckedCast<ContractState, FungibleToken>(it) }
             .filter {
@@ -186,18 +186,18 @@ fun FlowLogic<*>.verifySharedTransactionAgainstExchangeRequest(
             }.fold(BigDecimal.ZERO) { acc, fungibleToken ->
                 fungibleToken.amount.toDecimal() + acc
             }
-        if (sentAmount != assetRequest.amount.toDecimal())
+        if (sentAmount != abstractAssetRequest.tokenAmount.toDecimal())
             flowFail("The shared unsigned transaction does not send the agreed amount of " +
                     "shared tokens to $ourIdentity as agreed in Exchange Request; " +
-                    "Shared in unsigned tx: $sentAmount, Agreed: ${assetRequest.amount}")
-    } else if (assetRequest.tokenType.isPointer()) {
+                    "Shared in unsigned tx: $sentAmount, Agreed: ${abstractAssetRequest.tokenAmount}")
+    } else if (abstractAssetRequest is NonFungibleAssetRequest) {
         val sentNFTAsset = sentAsset
             .map { uncheckedCast<ContractState, NonFungibleToken>(it) }
             .filter { it.holder == ourIdentity }
-            .filter { it.token.tokenIdentifier == assetRequest.tokenType.tokenIdentifier }
+            .filter { it.token.tokenIdentifier == abstractAssetRequest.tokenIdentifier.toString() }
         if (sentNFTAsset.isEmpty())
             flowFail("The shared unsigned transaction does not transfer " +
-                    "the token with id: ${assetRequest.tokenType.tokenIdentifier} to $ourIdentity" +
+                    "the token with id: ${abstractAssetRequest.tokenIdentifier} to $ourIdentity" +
                     "as agreed in the Exchange Request")
     }
 }

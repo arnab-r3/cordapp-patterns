@@ -57,5 +57,3 @@ class TokenRegistry {
 val INRTokenType = FiatCurrency.getInstance("INR")
 val Int.INR: Amount<TokenType> get() = amount(this, INRTokenType)
 val Long.INR: Amount<TokenType> get() = amount(this, INRTokenType)
-
-

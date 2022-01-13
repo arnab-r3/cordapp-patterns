@@ -1,8 +1,11 @@
 package com.r3.demo.crossnotaryswap.flows.dto
 
 import com.r3.corda.lib.tokens.contracts.types.TokenType
+import com.r3.demo.crossnotaryswap.flows.utils.TokenRegistry
+import com.r3.demo.crossnotaryswap.schemas.DBAssetRequest
 import com.r3.demo.crossnotaryswap.schemas.ExchangeRequest
-import com.r3.demo.crossnotaryswap.types.AssetRequestType
+import com.r3.demo.crossnotaryswap.types.AssetRequestType.FUNGIBLE_ASSET_REQUEST
+import com.r3.demo.crossnotaryswap.types.AssetRequestType.NON_FUNGIBLE_ASSET_REQUEST
 import com.r3.demo.crossnotaryswap.types.RequestStatus
 import net.corda.core.contracts.Amount
 import net.corda.core.identity.AbstractParty
@@ -11,31 +14,38 @@ import net.corda.core.serialization.CordaSerializable
 import net.corda.core.serialization.deserialize
 import net.corda.core.serialization.serialize
 import net.corda.core.transactions.WireTransaction
-import java.math.BigDecimal
 import java.util.*
 
 @CordaSerializable
-interface AbstractAssetRequest
+interface AbstractAssetRequest {
+    fun toDBRepresentableForm(): DBAssetRequest
+}
 
 @CordaSerializable
-data class FungibleAssetRequest(val tokenAmount: Amount<TokenType>) : AbstractAssetRequest
+data class FungibleAssetRequest(val tokenAmount: Amount<TokenType>) : AbstractAssetRequest {
+    override fun toDBRepresentableForm(): DBAssetRequest =
+        DBAssetRequest(tokenAmount.token.tokenIdentifier, FUNGIBLE_ASSET_REQUEST, tokenAmount.quantity)
+
+}
 
 @CordaSerializable
-data class NonFungibleAssetRequest(val tokenType: TokenType, val tokenIdentifier: UUID) : AbstractAssetRequest
+data class NonFungibleAssetRequest(val tokenIdentifier: String) : AbstractAssetRequest {
+    override fun toDBRepresentableForm(): DBAssetRequest =
+        DBAssetRequest(tokenIdentifier, NON_FUNGIBLE_ASSET_REQUEST)
+}
 
-/**
- * Class to represent a request for an asset, not an actual asset.
- * The difference is clearly evident when talking about Fungible tokens; one can request for
- * 100$ but can be fulfilled by 5 fungible USD of 20 amount each.
- */
-@CordaSerializable
-open class AssetRequest(
-    val tokenIdentifier: String,
-    val assetRequestType: AssetRequestType,
-    val amount: BigDecimal? = null
-) {
-    override fun toString(): String {
-        return "AssetRequest(tokenIdentifier='$tokenIdentifier', assetRequestType=$assetRequestType, amount=$amount)"
+
+fun createAssetRequestFromDBAsset(dbAssetRequest: DBAssetRequest): AbstractAssetRequest {
+    return with(dbAssetRequest) {
+        when (assetRequestType) {
+            FUNGIBLE_ASSET_REQUEST -> {
+                require(amount != null) { "Amount cannot be null if token is of FungibleToken type" }
+                FungibleAssetRequest(Amount(amount!!, TokenRegistry.getInstance(tokenIdentifier)))
+            }
+            NON_FUNGIBLE_ASSET_REQUEST -> {
+                NonFungibleAssetRequest(tokenIdentifier)
+            }
+        }
     }
 }
 
@@ -47,8 +57,8 @@ data class ExchangeRequestDTO(
     val requestId: UUID = UUID.randomUUID(),
     val buyer: AbstractParty,
     val seller: AbstractParty,
-    val buyerAssetRequest: AssetRequest,
-    val sellerAssetRequest: AssetRequest,
+    val buyerAssetRequest: AbstractAssetRequest,
+    val sellerAssetRequest: AbstractAssetRequest,
     val requestStatus: RequestStatus? = null,
     val reason: String? = null,
     val txId: String? = null,
@@ -62,12 +72,8 @@ data class ExchangeRequestDTO(
                     requestId = UUID.fromString(requestId),
                     buyer = buyer,
                     seller = seller,
-                    buyerAssetRequest = AssetRequest(buyerAssetTokenIdentifier,
-                        buyerAssetRequestType,
-                        buyerAssetQty),
-                    sellerAssetRequest = AssetRequest(sellerAssetTokenIdentifier,
-                        sellerAssetRequestType,
-                        sellerAssetQty),
+                    buyerAssetRequest = createAssetRequestFromDBAsset(buyerAssetRequest),
+                    sellerAssetRequest = createAssetRequestFromDBAsset(sellerAssetRequest),
                     requestStatus = requestStatus,
                     txId = txId,
                     unsignedWireTransaction = unsignedTransaction?.deserialize())
@@ -78,12 +84,8 @@ data class ExchangeRequestDTO(
         requestId = requestId.toString(),
         buyer = buyer,
         seller = seller,
-        buyerAssetTokenIdentifier = buyerAssetRequest.tokenIdentifier,
-        sellerAssetTokenIdentifier = sellerAssetRequest.tokenIdentifier,
-        buyerAssetQty = buyerAssetRequest.amount,
-        sellerAssetQty = sellerAssetRequest.amount,
-        buyerAssetRequestType = buyerAssetRequest.assetRequestType,
-        sellerAssetRequestType = sellerAssetRequest.assetRequestType,
+        buyerAssetRequest = buyerAssetRequest.toDBRepresentableForm(),
+        sellerAssetRequest = sellerAssetRequest.toDBRepresentableForm(),
         requestStatus = requestStatus,
         reason = reason,
         txId = txId,

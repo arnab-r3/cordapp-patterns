@@ -7,7 +7,10 @@ import com.r3.demo.crossnotaryswap.flow.helpers.singleOutput
 import com.r3.demo.crossnotaryswap.flows.CurrencyFlows
 import com.r3.demo.crossnotaryswap.flows.InitiateExchangeFlows
 import com.r3.demo.crossnotaryswap.flows.NFTFlows
+import com.r3.demo.crossnotaryswap.flows.dto.FungibleAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.KittyTokenDefinition
+import com.r3.demo.crossnotaryswap.flows.dto.NonFungibleAssetRequest
+import com.r3.demo.crossnotaryswap.flows.utils.INR
 import com.r3.demo.crossnotaryswap.services.ExchangeRequestService
 import com.r3.demo.crossnotaryswap.states.KittyToken
 import net.corda.core.transactions.SignedTransaction
@@ -23,6 +26,7 @@ class CrossNotarySwapTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNo
     companion object {
         val logger = contextLogger()
     }
+
     private lateinit var partyANode: StartedMockNode
     private lateinit var partyBNode: StartedMockNode
     private lateinit var partyCNode: StartedMockNode
@@ -44,17 +48,16 @@ class CrossNotarySwapTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNo
     @Test
     fun `initiate cross notary swap`() {
 
-
         issueFiat(partyANode, partyBNode)
         val nftTxn = issueNFT(partyCNode, partyDNode)
         val nftTokenId = nftTxn.singleOutput<NonFungibleToken>().state.data.linearId.toString()
+
         // party D is the buyer and exchanging the NFT with the above id in exchange of 10 INR token
         val exchangeRequestId = partyDNode.startFlow(
             InitiateExchangeFlows.ExchangeRequesterFlow(
                 sellerParty = partyBNode.legalIdentity(),
-                sellerTokenAmount = 10,
-                sellerTokenIdentifier = "INR",
-                buyerTokenIdentifier = nftTokenId
+                sellerAssetRequest = FungibleAssetRequest(10.INR),
+                buyerAssetRequest = NonFungibleAssetRequest(nftTokenId)
             )
         ).getOrThrow()
 

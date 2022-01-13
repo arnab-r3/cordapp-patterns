@@ -33,7 +33,6 @@ fun <T : LinearState> linearPointer(id: String, clazz: Class<T>) = LinearPointer
 
 @Suspendable
 fun FlowLogic<*>.getPreferredNotaryForToken(tokenType: TokenType, backupSelector: (ServiceHub) -> Party = firstNotary()): Party {
-    if (tokenType.isCustomTokenType()) argFail("Notary selection for custom token type not yet supported")
 
     val currencyCode = if(tokenType.isPointer())
         TokenRegistry.getTokenAbbreviation(tokenType.tokenClass)
