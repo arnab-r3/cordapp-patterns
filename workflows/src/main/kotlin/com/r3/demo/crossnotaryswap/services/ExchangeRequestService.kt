@@ -4,9 +4,10 @@ import co.paralleluniverse.fibers.Suspendable
 import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.workflows.utilities.heldTokensByToken
 import com.r3.corda.lib.tokens.workflows.utilities.tokenBalance
-import com.r3.demo.crossnotaryswap.flows.dto.ExchangeAsset
+import com.r3.demo.crossnotaryswap.flows.dto.AssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
 import com.r3.demo.crossnotaryswap.schemas.ExchangeRequest
+import com.r3.demo.crossnotaryswap.types.AssetRequestType
 import com.r3.demo.crossnotaryswap.types.RequestStatus
 import com.r3.demo.generic.argFail
 import com.r3.demo.generic.flowFail
@@ -14,10 +15,14 @@ import net.corda.core.identity.AbstractParty
 import net.corda.core.node.AppServiceHub
 import net.corda.core.node.services.CordaService
 import net.corda.core.serialization.SingletonSerializeAsToken
+import net.corda.core.utilities.contextLogger
 
 @CordaService
 class ExchangeRequestService(private val appServiceHub: AppServiceHub) : SingletonSerializeAsToken() {
 
+    companion object {
+        val logger = contextLogger()
+    }
     /**
      * Get Exchange request by requestId
      */
@@ -81,20 +86,20 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
      * Create a new [ExchangeRequest] in the exchange_request table in the db of the local node
      * @param buyer party
      * @param seller party
-     * @param buyerAsset details containing the token name and optional amount
-     * @param sellerAsset details containing the token name and the optional amount
+     * @param buyerAssetRequest details containing the token name and optional amount
+     * @param sellerAssetRequest details containing the token name and the optional amount
      */
     fun newExchangeRequest(
         buyer: AbstractParty,
         seller: AbstractParty,
-        buyerAsset: ExchangeAsset<out TokenType>,
-        sellerAsset: ExchangeAsset<out TokenType>
+        buyerAssetRequest: AssetRequest,
+        sellerAssetRequest: AssetRequest
     ): ExchangeRequestDTO {
         val exchangeRequestDTO = ExchangeRequestDTO(
             buyer = buyer,
             seller = seller,
-            buyerAsset = buyerAsset,
-            sellerAsset = sellerAsset,
+            buyerAssetRequest = buyerAssetRequest,
+            sellerAssetRequest = sellerAssetRequest,
             requestStatus = RequestStatus.REQUESTED
         )
         newExchangeRequestFromDto(exchangeRequestDTO)
@@ -108,6 +113,7 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
      * @param exchangeRequestDTO
      */
     fun newExchangeRequestFromDto(exchangeRequestDTO: ExchangeRequestDTO) {
+        logger.info("exchange request dto : $exchangeRequestDTO")
         val exchangeRequestEntity = exchangeRequestDTO.toExchangeRequestEntity()
         if (exchangeRequestDTO.requestStatus == null) {
             exchangeRequestEntity.requestStatus = RequestStatus.REQUESTED
@@ -119,18 +125,21 @@ class ExchangeRequestService(private val appServiceHub: AppServiceHub) : Singlet
 
     /**
      * Checks if the specified asset is owned by our identity
-     * @param exchangeAsset to be checked against our vault
+     * @param assetRequest to be checked against our vault
      */
     @Suspendable
-    fun isExchangeAssetOwned(exchangeAsset: ExchangeAsset<out TokenType>): Boolean {
+    fun isExchangeAssetOwned(assetRequest: AssetRequest): Boolean {
 
-        val (_, amount) = exchangeAsset.toTokenIdentifierAndAmount()
+        return when(assetRequest.assetRequestType) {
+            AssetRequestType.FUNGIBLE_ASSET_REQUEST -> {},
+            AssetRequestType.NON_FUNGIBLE_ASSET_REQUEST -> {}
+        }
 
-        return if (exchangeAsset.tokenType.isPointer()) {
-            val heldTokensByToken = appServiceHub.vaultService.heldTokensByToken(exchangeAsset.tokenType)
+        return if (assetRequest.tokenType.isPointer()) {
+            val heldTokensByToken = appServiceHub.vaultService.heldTokensByToken(assetRequest.tokenType)
             heldTokensByToken.states.isNotEmpty()
-        } else if (exchangeAsset.tokenType.isRegularTokenType() && amount != null) {
-            val tokenBalance = appServiceHub.vaultService.tokenBalance(exchangeAsset.tokenType)
+        } else if (assetRequest.tokenType.isRegularTokenType() && amount != null) {
+            val tokenBalance = appServiceHub.vaultService.tokenBalance(assetRequest.tokenType)
             tokenBalance.quantity >= amount
         } else argFail("Cannot determine token type. It needs to be either a regular token type or a token pointer")
     }

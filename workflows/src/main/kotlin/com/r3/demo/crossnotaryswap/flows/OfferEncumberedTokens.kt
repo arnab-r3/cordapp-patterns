@@ -53,7 +53,7 @@ class OfferEncumberedTokens(
 
         //prepare the transaction
         val transactionBuilder =
-            TransactionBuilder(notary = getPreferredNotaryForToken(exchangeRequestDTO.sellerAsset.tokenType))
+            TransactionBuilder(notary = getPreferredNotaryForToken(exchangeRequestDTO.sellerAssetRequest.tokenType))
 
         // construct the transaction that encumbers all states on the lock state based on the exchange request
         val encumberedTransaction =
@@ -93,19 +93,19 @@ class OfferEncumberedTokens(
     ): TransactionBuilder {
         return with(transactionBuilder) {
             when {
-                exchangeRequestDTO.sellerAsset.tokenType.isPointer() -> {
+                exchangeRequestDTO.sellerAssetRequest.tokenType.isPointer() -> {
                     addMoveToken(
                         serviceHub = serviceHub,
-                        tokenIdentifier = exchangeRequestDTO.sellerAsset.tokenType.tokenIdentifier,
-                        tokenClass = uncheckedCast(exchangeRequestDTO.sellerAsset.tokenType.tokenClass),
+                        tokenIdentifier = exchangeRequestDTO.sellerAssetRequest.tokenType.tokenIdentifier,
+                        tokenClass = uncheckedCast(exchangeRequestDTO.sellerAssetRequest.tokenType.tokenClass),
                         holder = compositeKeyHolderParty,
                         additionalKeys = listOf(exchangeRequestDTO.buyer.owningKey),
                         lockState = lockState
                     )
                 }
-                exchangeRequestDTO.sellerAsset.tokenType.isRegularTokenType() -> {
+                exchangeRequestDTO.sellerAssetRequest.tokenType.isRegularTokenType() -> {
                     addMoveTokens(serviceHub = serviceHub,
-                        amount = uncheckedCast(exchangeRequestDTO.sellerAsset.amount),
+                        amount = uncheckedCast(exchangeRequestDTO.sellerAssetRequest.amount),
                         holder = compositeKeyHolderParty,
                         changeHolder = ourIdentity,
                         additionalKeys = listOf(exchangeRequestDTO.buyer.owningKey),
@@ -146,7 +146,7 @@ class OfferEncumberedTokensFlowHandler(private val counterPartySession: FlowSess
             val exchangeRequestDTO = exchangeService.getExchangeRequestByTxId(lockState.txHash.toString())
 
             // verify if the transaction is ok as per the shared exchange request
-            verifySharedTransactionAgainstExchangeRequest(exchangeRequestDTO.sellerAsset, signedEncumberedTx.tx)
+            verifySharedTransactionAgainstExchangeRequest(exchangeRequestDTO.sellerAssetRequest, signedEncumberedTx.tx)
 
             val unsignedWireTransaction =
                 exchangeRequestDTO.unsignedWireTransaction ?: flowFail("Exchange request should contain the " +

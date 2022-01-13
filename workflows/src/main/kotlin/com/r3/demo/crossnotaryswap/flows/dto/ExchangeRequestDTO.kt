@@ -1,8 +1,8 @@
 package com.r3.demo.crossnotaryswap.flows.dto
 
 import com.r3.corda.lib.tokens.contracts.types.TokenType
-import com.r3.demo.crossnotaryswap.flows.utils.TokenRegistry
 import com.r3.demo.crossnotaryswap.schemas.ExchangeRequest
+import com.r3.demo.crossnotaryswap.types.AssetRequestType
 import com.r3.demo.crossnotaryswap.types.RequestStatus
 import net.corda.core.contracts.Amount
 import net.corda.core.identity.AbstractParty
@@ -11,52 +11,44 @@ import net.corda.core.serialization.CordaSerializable
 import net.corda.core.serialization.deserialize
 import net.corda.core.serialization.serialize
 import net.corda.core.transactions.WireTransaction
+import java.math.BigDecimal
 import java.util.*
 
+@CordaSerializable
+interface AbstractAssetRequest
+
+@CordaSerializable
+data class FungibleAssetRequest(val tokenAmount: Amount<TokenType>) : AbstractAssetRequest
+
+@CordaSerializable
+data class NonFungibleAssetRequest(val tokenType: TokenType, val tokenIdentifier: UUID) : AbstractAssetRequest
+
 /**
- * Class to represent a buyer or seller asset
+ * Class to represent a request for an asset, not an actual asset.
+ * The difference is clearly evident when talking about Fungible tokens; one can request for
+ * 100$ but can be fulfilled by 5 fungible USD of 20 amount each.
  */
 @CordaSerializable
-open class ExchangeAsset<T : TokenType>(
-    val tokenType: T,
-    val amount: Amount<T>? = null
+open class AssetRequest(
+    val tokenIdentifier: String,
+    val assetRequestType: AssetRequestType,
+    val amount: BigDecimal? = null
 ) {
-
-    companion object {
-        fun toAssetType(
-            tokenIdentifier: String,
-            amount: Long? = null,
-            serviceHub: ServiceHub
-        ): ExchangeAsset<out TokenType> {
-            val tokenType = TokenRegistry.getInstance(tokenIdentifier, serviceHub)
-            return amount?.let {
-                ExchangeAsset(tokenType = tokenType, amount = Amount(amount, tokenType))
-            } ?: ExchangeAsset(tokenType = tokenType)
-        }
-    }
-
-    fun toTokenIdentifierAndAmount(): Pair<String, Long?> {
-        return if (amount != null) {
-            tokenType.tokenIdentifier to amount.quantity
-        } else tokenType.tokenIdentifier to null
-    }
-
     override fun toString(): String {
-        return "ExchangeAsset(tokenType=$tokenType, amount=$amount)"
+        return "AssetRequest(tokenIdentifier='$tokenIdentifier', assetRequestType=$assetRequestType, amount=$amount)"
     }
 }
 
-//data class Asset(val assetId: UUID)
 /**
- * A deal class to represent DvP or PvP request
+ * A deal class to represent an exchange request of an NFT <> NFT, FT <> FT, or NFT <> FT
  */
 @CordaSerializable
 data class ExchangeRequestDTO(
     val requestId: UUID = UUID.randomUUID(),
     val buyer: AbstractParty,
     val seller: AbstractParty,
-    val buyerAsset: ExchangeAsset<out TokenType>,
-    val sellerAsset: ExchangeAsset<out TokenType>,
+    val buyerAssetRequest: AssetRequest,
+    val sellerAssetRequest: AssetRequest,
     val requestStatus: RequestStatus? = null,
     val reason: String? = null,
     val txId: String? = null,
@@ -70,14 +62,12 @@ data class ExchangeRequestDTO(
                     requestId = UUID.fromString(requestId),
                     buyer = buyer,
                     seller = seller,
-                    buyerAsset = ExchangeAsset.toAssetType(
-                        buyerAssetType,
-                        buyerAssetQty,
-                        serviceHub),
-                    sellerAsset = ExchangeAsset.toAssetType(
-                        sellerAssetType,
-                        sellerAssetQty,
-                        serviceHub),
+                    buyerAssetRequest = AssetRequest(buyerAssetTokenIdentifier,
+                        buyerAssetRequestType,
+                        buyerAssetQty),
+                    sellerAssetRequest = AssetRequest(sellerAssetTokenIdentifier,
+                        sellerAssetRequestType,
+                        sellerAssetQty),
                     requestStatus = requestStatus,
                     txId = txId,
                     unsignedWireTransaction = unsignedTransaction?.deserialize())
@@ -88,29 +78,38 @@ data class ExchangeRequestDTO(
         requestId = requestId.toString(),
         buyer = buyer,
         seller = seller,
-        buyerAssetType = buyerAsset.tokenType.tokenIdentifier,
-        sellerAssetType = sellerAsset.tokenType.tokenIdentifier,
-        buyerAssetQty = buyerAsset.amount?.quantity,
-        sellerAssetQty = sellerAsset.amount?.quantity,
+        buyerAssetTokenIdentifier = buyerAssetRequest.tokenIdentifier,
+        sellerAssetTokenIdentifier = sellerAssetRequest.tokenIdentifier,
+        buyerAssetQty = buyerAssetRequest.amount,
+        sellerAssetQty = sellerAssetRequest.amount,
+        buyerAssetRequestType = buyerAssetRequest.assetRequestType,
+        sellerAssetRequestType = sellerAssetRequest.assetRequestType,
         requestStatus = requestStatus,
         reason = reason,
+        txId = txId,
         unsignedTransaction = unsignedWireTransaction?.serialize()?.bytes
     )
 
     fun approve(): ExchangeRequestDTO = this.copy(requestStatus = RequestStatus.APPROVED)
-    fun reject(reason: String? = null): ExchangeRequestDTO =
-        this.copy(requestStatus = RequestStatus.REQUESTED, reason = reason)
-
+    fun deny(reason: String? = null): ExchangeRequestDTO =
+        this.copy(requestStatus = RequestStatus.DENIED, reason = reason)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
+
         other as ExchangeRequestDTO
+
         if (requestId != other.requestId) return false
         if (buyer != other.buyer) return false
         if (seller != other.seller) return false
-        if (buyerAsset != other.buyerAsset) return false
-        if (sellerAsset != other.sellerAsset) return false
+        if (buyerAssetRequest != other.buyerAssetRequest) return false
+        if (sellerAssetRequest != other.sellerAssetRequest) return false
+        if (requestStatus != other.requestStatus) return false
+        if (reason != other.reason) return false
+        if (txId != other.txId) return false
+        if (unsignedWireTransaction != other.unsignedWireTransaction) return false
+
         return true
     }
 
@@ -118,11 +117,26 @@ data class ExchangeRequestDTO(
         var result = requestId.hashCode()
         result = 31 * result + buyer.hashCode()
         result = 31 * result + seller.hashCode()
-        result = 31 * result + buyerAsset.hashCode()
-        result = 31 * result + sellerAsset.hashCode()
+        result = 31 * result + buyerAssetRequest.hashCode()
+        result = 31 * result + sellerAssetRequest.hashCode()
         result = 31 * result + (requestStatus?.hashCode() ?: 0)
+        result = 31 * result + (reason?.hashCode() ?: 0)
         result = 31 * result + (txId?.hashCode() ?: 0)
+        result = 31 * result + (unsignedWireTransaction?.hashCode() ?: 0)
         return result
+    }
+
+    override fun toString(): String {
+        return "ExchangeRequestDTO(" +
+                "requestId=$requestId, " +
+                "buyer=$buyer, " +
+                "seller=$seller, " +
+                "buyerAssetRequest=$buyerAssetRequest, " +
+                "sellerAssetRequest=$sellerAssetRequest, " +
+                "requestStatus=$requestStatus, " +
+                "reason=$reason, " +
+                "txId=$txId, " +
+                "unsignedWireTransaction=$unsignedWireTransaction)"
     }
 
 

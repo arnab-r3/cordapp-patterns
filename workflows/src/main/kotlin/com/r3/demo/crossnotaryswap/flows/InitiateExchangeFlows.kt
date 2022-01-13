@@ -1,7 +1,7 @@
 package com.r3.demo.crossnotaryswap.flows
 
 import co.paralleluniverse.fibers.Suspendable
-import com.r3.demo.crossnotaryswap.flows.dto.ExchangeAsset
+import com.r3.demo.crossnotaryswap.flows.dto.AssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
 import com.r3.demo.crossnotaryswap.services.ExchangeRequestService
 import com.r3.demo.crossnotaryswap.types.RequestStatus
@@ -36,13 +36,19 @@ object InitiateExchangeFlows {
         private val buyerTokenAmount: Long? = null
     ) : FlowLogic<String>() {
 
+
         @Suspendable
         override fun call(): String {
 
             val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
 
-            val buyerAsset = ExchangeAsset.toAssetType(buyerTokenIdentifier, buyerTokenAmount, serviceHub)
-            val sellerAsset = ExchangeAsset.toAssetType(sellerTokenIdentifier, sellerTokenAmount, serviceHub)
+            logger.info("Buyer $ourIdentity, token Identifier: $buyerTokenIdentifier")
+            logger.info("Seller $sellerParty, token Identifier: $sellerTokenIdentifier")
+
+            val buyerAsset = AssetRequest.toAssetType(buyerTokenIdentifier, buyerTokenAmount, serviceHub)
+            val sellerAsset = AssetRequest.toAssetType(sellerTokenIdentifier, sellerTokenAmount, serviceHub)
+
+            logger.info("Buyer wishes to exchange asset $buyerAsset")
 
             if (!exchangeService.isExchangeAssetOwned(buyerAsset))
                 flowFail("The specified asset does not belong to us " +
@@ -51,14 +57,15 @@ object InitiateExchangeFlows {
             val exchangeRequestDto = ExchangeRequestDTO(
                 buyer = ourIdentity,
                 seller = sellerParty,
-                sellerAsset = sellerAsset,
-                buyerAsset = buyerAsset
+                sellerAssetRequest = sellerAsset,
+                buyerAssetRequest = buyerAsset
             )
 
             exchangeService.newExchangeRequestFromDto(exchangeRequestDto)
             val sellerSession = initiateFlow(sellerParty)
             sellerSession.send(exchangeRequestDto)
 
+            logger.info("Returning exchange request id: ${exchangeRequestDto.requestId.toString()}")
             return exchangeRequestDto.requestId.toString()
         }
 
@@ -101,10 +108,10 @@ object InitiateExchangeFlows {
             val counterPartySession = initiateFlow(exchangeRequestDto.buyer)
 
             // check if we have sufficient balance of the requested asset
-            if (!exchangeService.isExchangeAssetOwned(exchangeRequestDto.sellerAsset)) {
+            if (!exchangeService.isExchangeAssetOwned(exchangeRequestDto.sellerAssetRequest)) {
                 val reason = "The specified asset does not belong to us " +
-                        "or is in insufficient quantity: ${exchangeRequestDto.sellerAsset}"
-                val rejectedRequest = exchangeRequestDto.reject(reason)
+                        "or is in insufficient quantity: ${exchangeRequestDto.sellerAssetRequest}"
+                val rejectedRequest = exchangeRequestDto.deny(reason)
 
                 counterPartySession.send(rejectedRequest)
 
@@ -118,7 +125,7 @@ object InitiateExchangeFlows {
             }
             else {
                 exchangeService.setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.DENIED, rejectionReason)
-                exchangeRequestDto.reject(rejectionReason)
+                exchangeRequestDto.deny(rejectionReason)
             }
 
             counterPartySession.send(exchangeRequestResponseDto)

@@ -9,3 +9,10 @@ enum class RequestStatus {
     ABORTED,
     DENIED
 }
+
+
+@CordaSerializable
+enum class AssetRequestType {
+    FUNGIBLE_ASSET_REQUEST,
+    NON_FUNGIBLE_ASSET_REQUEST
+}

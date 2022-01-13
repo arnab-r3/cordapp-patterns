@@ -1,6 +1,6 @@
 package com.r3.demo.crossnotaryswap.flows.utils
 
-import com.r3.corda.lib.tokens.contracts.states.NonFungibleToken
+import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
 import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.contracts.utilities.amount
 import com.r3.corda.lib.tokens.money.FiatCurrency
@@ -38,19 +38,19 @@ class TokenRegistry {
                 val queryCriteria = QueryCriteria
                     .LinearStateQueryCriteria(
                         linearId = listOf(UniqueIdentifier.fromString(tokenIdentifier)),
-                        contractStateTypes = setOf(NonFungibleToken::class.java)
+                        contractStateTypes = setOf(EvolvableTokenType::class.java)
                     )
                 val nonFungibleTokenPages =
-                    serviceHub.vaultService.queryBy(NonFungibleToken::class.java, queryCriteria)
+                    serviceHub.vaultService.queryBy(EvolvableTokenType::class.java, queryCriteria)
                 require(nonFungibleTokenPages.states.isNotEmpty())
                 { "Cannot find any token with identifier $tokenIdentifier" }
-                nonFungibleTokenPages.states.single().state.data.token.tokenType
+                nonFungibleTokenPages.states.single().state.data.toPointer(EvolvableTokenType::class.java)
             }
         }
-    }
 
-    fun getTokenAbbreviation(clazz: Class<*>): String {
-        return currencyClassMap[clazz] ?: throw IllegalArgumentException("$clazz does not exist.")
+        fun getTokenAbbreviation(clazz: Class<*>): String {
+            return currencyClassMap[clazz] ?: throw IllegalArgumentException("$clazz does not exist.")
+        }
     }
 }
 

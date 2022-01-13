@@ -11,6 +11,7 @@ import com.r3.demo.crossnotaryswap.flows.dto.KittyTokenDefinition
 import com.r3.demo.crossnotaryswap.services.ExchangeRequestService
 import com.r3.demo.crossnotaryswap.states.KittyToken
 import net.corda.core.transactions.SignedTransaction
+import net.corda.core.utilities.contextLogger
 import net.corda.core.utilities.getOrThrow
 import net.corda.testing.node.StartedMockNode
 import org.junit.Before
@@ -19,6 +20,9 @@ import kotlin.test.assertEquals
 
 class CrossNotarySwapTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
 
+    companion object {
+        val logger = contextLogger()
+    }
     private lateinit var partyANode: StartedMockNode
     private lateinit var partyBNode: StartedMockNode
     private lateinit var partyCNode: StartedMockNode
@@ -43,14 +47,14 @@ class CrossNotarySwapTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNo
 
         issueFiat(partyANode, partyBNode)
         val nftTxn = issueNFT(partyCNode, partyDNode)
-        val tokenIdentifier = (nftTxn.coreTransaction.outputStates.single() as NonFungibleToken).token.tokenIdentifier
+        val nftTokenId = nftTxn.singleOutput<NonFungibleToken>().state.data.linearId.toString()
+        // party D is the buyer and exchanging the NFT with the above id in exchange of 10 INR token
         val exchangeRequestId = partyDNode.startFlow(
             InitiateExchangeFlows.ExchangeRequesterFlow(
                 sellerParty = partyBNode.legalIdentity(),
                 sellerTokenAmount = 10,
                 sellerTokenIdentifier = "INR",
-                buyerTokenClass = KittyToken::class.java,
-                buyerTokenIdentifier = tokenIdentifier
+                buyerTokenIdentifier = nftTokenId
             )
         ).getOrThrow()
 
@@ -92,6 +96,8 @@ class CrossNotarySwapTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNo
         // issue token to party B
         val tokenDefinitionId = defineTxn.singleOutput<KittyToken>().state.data.linearId.toString()
 
+        logger.info("Created a token type of Kitty with ID: $tokenDefinitionId")
+
         val issueTxn = issuerNode.startFlow(
             NFTFlows.IssueNFTFlow(
                 tokenIdentifier = tokenDefinitionId,
@@ -99,6 +105,8 @@ class CrossNotarySwapTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNo
                 receivingParty = holderNode.legalIdentity()
             )
         ).getOrThrow()
+        val nftId = issueTxn.singleOutput<NonFungibleToken>().state.data.linearId
+        logger.info("Issued a token to ${holderNode.legalIdentity()} with NFT ID: $nftId")
 
         network.waitQuiescent()
         return issueTxn

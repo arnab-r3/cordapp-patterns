@@ -42,7 +42,7 @@ class DraftTransferOfOwnershipFlow(
         val exchangeRequestDto = exchangeService.getRequestById(requestId)
 
         // construct the unsigned wire transaction
-        val transactionBuilder = TransactionBuilder(getPreferredNotaryForToken(exchangeRequestDto.buyerAsset.tokenType))
+        val transactionBuilder = TransactionBuilder(getPreferredNotaryForToken(exchangeRequestDto.buyerAssetRequest.tokenType))
         val constructedTxForTransfer =
             addBuyerAssetToTransactionBuilder(transactionBuilder, exchangeRequestDto)
 
@@ -78,13 +78,13 @@ class DraftTransferOfOwnershipFlow(
         transactionBuilder: TransactionBuilder,
         exchangeRequestDto: ExchangeRequestDTO
     ): TransactionBuilder {
-        val buyerAsset = exchangeRequestDto.buyerAsset
+        val buyerAsset = exchangeRequestDto.buyerAssetRequest
         val seller = exchangeRequestDto.seller
         return when {
             // add the move tokens if it is a nft
             buyerAsset.tokenType.isRegularTokenType() -> {
-                val tokenType = exchangeRequestDto.buyerAsset.tokenType
-                val amount = exchangeRequestDto.buyerAsset.amount!!.quantity
+                val tokenType = exchangeRequestDto.buyerAssetRequest.tokenType
+                val amount = exchangeRequestDto.buyerAssetRequest.amount!!.quantity
                 val partyAndAmount = PartyAndAmount(seller, amount of tokenType)
                 addMoveFungibleTokens(
                     transactionBuilder = transactionBuilder,
@@ -95,7 +95,7 @@ class DraftTransferOfOwnershipFlow(
             }
             // add the move tokens if it is a fungible token
             buyerAsset.tokenType.isPointer() -> {
-                val partyAndToken = PartyAndToken(seller, exchangeRequestDto.buyerAsset.tokenType)
+                val partyAndToken = PartyAndToken(seller, exchangeRequestDto.buyerAssetRequest.tokenType)
                 addMoveNonFungibleTokens(
                     transactionBuilder = transactionBuilder,
                     serviceHub = serviceHub,
@@ -147,7 +147,7 @@ class DraftTransferOfOwnershipHandler(private val counterPartySession: FlowSessi
         val exchangeRequestDto = exchangeService.getRequestById(requestId)
         // verify the shared transaction against the original exchange request
 
-        verifySharedTransactionAgainstExchangeRequest(exchangeRequestDto.buyerAsset, unsignedWireTx)
+        verifySharedTransactionAgainstExchangeRequest(exchangeRequestDto.buyerAssetRequest, unsignedWireTx)
 
         subFlow(OfferEncumberedTokens(exchangeRequestDTO = exchangeRequestDto,
             validatedDraftTransferOfOwnership = validatedDraftTransferOfOwnership))
