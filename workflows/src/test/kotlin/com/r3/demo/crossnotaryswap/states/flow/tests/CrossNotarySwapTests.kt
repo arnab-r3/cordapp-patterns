@@ -1,19 +1,15 @@
 package com.r3.demo.crossnotaryswap.states.flow.tests
 
 import com.r3.corda.lib.tokens.contracts.states.NonFungibleToken
-import com.r3.demo.crossnotaryswap.flow.helpers.MockNetworkTest
-import com.r3.demo.crossnotaryswap.flow.helpers.legalIdentity
-import com.r3.demo.crossnotaryswap.flow.helpers.singleOutput
-import com.r3.demo.crossnotaryswap.flows.CurrencyFlows
+import com.r3.demo.crossnotaryswap.flow.helpers.*
 import com.r3.demo.crossnotaryswap.flows.InitiateExchangeFlows
-import com.r3.demo.crossnotaryswap.flows.NFTFlows
+import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
 import com.r3.demo.crossnotaryswap.flows.dto.FungibleAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.KittyTokenDefinition
 import com.r3.demo.crossnotaryswap.flows.dto.NonFungibleAssetRequest
 import com.r3.demo.crossnotaryswap.flows.utils.INR
-import com.r3.demo.crossnotaryswap.services.ExchangeRequestService
+import com.r3.demo.crossnotaryswap.flows.utils.getRequestEntityById
 import com.r3.demo.crossnotaryswap.states.KittyToken
-import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.contextLogger
 import net.corda.core.utilities.getOrThrow
 import net.corda.testing.node.StartedMockNode
@@ -45,12 +41,24 @@ class CrossNotarySwapTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNo
         notaryBNode = nodesByName["NotaryB"]!!
     }
 
+
     @Test
     fun `initiate cross notary swap`() {
 
-        issueFiat(partyANode, partyBNode)
-        val nftTxn = issueNFT(partyCNode, partyDNode)
-        val nftTokenId = nftTxn.singleOutput<NonFungibleToken>().state.data.linearId.toString()
+        partyANode.issueFungibleTokens(100, "INR", partyBNode.legalIdentity(), emptyList())
+
+        val sampleTokenDefinition = KittyTokenDefinition(
+            kittyName = "Black Kitty",
+            maintainers = listOf(partyCNode.legalIdentity().toString())
+        )
+
+        val defineNonFungibleToken = partyCNode.defineNonFungibleToken(sampleTokenDefinition).getOrThrow()
+        val tokenDefinitionId = defineNonFungibleToken.singleOutput<KittyToken>().state.data.linearId.toString()
+        val issueTxn =
+            partyCNode.issueNonFungibleToken(tokenDefinitionId, KittyToken::class.java, partyDNode.legalIdentity())
+                .getOrThrow()
+
+        val nftTokenId = issueTxn.singleOutput<NonFungibleToken>().state.data.linearId.toString()
 
         // party D is the buyer and exchanging the NFT with the above id in exchange of 10 INR token
         val exchangeRequestId = partyDNode.startFlow(
@@ -64,55 +72,12 @@ class CrossNotarySwapTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNo
         network.waitQuiescent()
 
         val exchangeRequestAtBuyer =
-            partyDNode.services.cordaService(ExchangeRequestService::class.java).getRequestById(exchangeRequestId)
-
+            ExchangeRequestDTO.fromExchangeRequestEntity(getRequestEntityById(exchangeRequestId, partyDNode.services))
         val exchangeRequestAtSeller =
-            partyBNode.services.cordaService(ExchangeRequestService::class.java).getRequestById(exchangeRequestId)
+            ExchangeRequestDTO.fromExchangeRequestEntity(getRequestEntityById(exchangeRequestId, partyBNode.services))
 
         assertEquals(exchangeRequestAtBuyer, exchangeRequestAtSeller)
     }
 
-    private fun issueFiat(issuerNode: StartedMockNode, holderNode: StartedMockNode): SignedTransaction {
-        val transaction = issuerNode.startFlow(
-            CurrencyFlows.IssueFiatCurrencyFlow(
-                amount = 100,
-                currency = "INR",
-                receiver = holderNode.legalIdentity())
-        ).getOrThrow()
-        network.waitQuiescent()
-        return transaction
-    }
-
-    private fun issueNFT(issuerNode: StartedMockNode, holderNode: StartedMockNode): SignedTransaction {
-        // define token
-        val tokenDefinition = KittyTokenDefinition(
-            kittyName = "Black Kitty",
-            maintainers = listOf(issuerNode.legalIdentity().toString())
-        )
-
-        val defineTxn = issuerNode.startFlow(
-            NFTFlows.DefineNFTFlow(tokenDefinition)
-        ).getOrThrow()
-
-        network.waitQuiescent()
-
-        // issue token to party B
-        val tokenDefinitionId = defineTxn.singleOutput<KittyToken>().state.data.linearId.toString()
-
-        logger.info("Created a token type of Kitty with ID: $tokenDefinitionId")
-
-        val issueTxn = issuerNode.startFlow(
-            NFTFlows.IssueNFTFlow(
-                tokenIdentifier = tokenDefinitionId,
-                tokenClass = KittyToken::class.java,
-                receivingParty = holderNode.legalIdentity()
-            )
-        ).getOrThrow()
-        val nftId = issueTxn.singleOutput<NonFungibleToken>().state.data.linearId
-        logger.info("Issued a token to ${holderNode.legalIdentity()} with NFT ID: $nftId")
-
-        network.waitQuiescent()
-        return issueTxn
-    }
 
 }

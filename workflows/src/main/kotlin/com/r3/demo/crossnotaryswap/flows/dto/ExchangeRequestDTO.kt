@@ -66,7 +66,7 @@ data class ExchangeRequestDTO(
 ) {
     companion object {
 
-        fun fromExchangeRequestEntity(exchangeRequest: ExchangeRequest, serviceHub: ServiceHub): ExchangeRequestDTO =
+        fun fromExchangeRequestEntity(exchangeRequest: ExchangeRequest): ExchangeRequestDTO =
             with(exchangeRequest) {
                 ExchangeRequestDTO(
                     requestId = UUID.fromString(requestId),

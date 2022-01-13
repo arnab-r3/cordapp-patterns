@@ -5,11 +5,7 @@ import com.r3.corda.lib.tokens.workflows.utilities.toParty
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
 import com.r3.demo.crossnotaryswap.flows.dto.FungibleAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.NonFungibleAssetRequest
-import com.r3.demo.crossnotaryswap.flows.utils.addMoveToken
-import com.r3.demo.crossnotaryswap.flows.utils.addMoveTokens
-import com.r3.demo.crossnotaryswap.flows.utils.registerCompositeKey
-import com.r3.demo.crossnotaryswap.flows.utils.verifySharedTransactionAgainstExchangeRequest
-import com.r3.demo.crossnotaryswap.services.ExchangeRequestService
+import com.r3.demo.crossnotaryswap.flows.utils.*
 import com.r3.demo.crossnotaryswap.states.LockState
 import com.r3.demo.crossnotaryswap.states.ValidatedDraftTransferOfOwnership
 import com.r3.demo.generic.flowFail
@@ -42,8 +38,6 @@ class OfferEncumberedTokens(
     @Suspendable
     override fun call(): SignedTransaction {
 
-        val exchangeRequestService = serviceHub.cordaService(ExchangeRequestService::class.java)
-
         val buyerParty = exchangeRequestDTO.buyer.toParty(serviceHub)
 
         // create the composite key to transfer the seller asset to. This is to enable equal control of both the
@@ -54,7 +48,7 @@ class OfferEncumberedTokens(
         // create the lock state that will encumber all tokens/states that the seller will transfer
         val lockState = LockState(validatedDraftTransferOfOwnership, ourIdentity, buyerParty)
 
-        val tokenTypeForSeller = exchangeRequestService.getTokenTypeFromAssetRequest(exchangeRequestDTO.sellerAssetRequest)
+        val tokenTypeForSeller = getTokenTypeFromAssetRequest(exchangeRequestDTO.sellerAssetRequest)
         //prepare the transaction
         val transactionBuilder =
             TransactionBuilder(notary = getPreferredNotaryForToken(tokenTypeForSeller))
@@ -145,8 +139,7 @@ class OfferEncumberedTokensFlowHandler(private val counterPartySession: FlowSess
 
         // execute the rest of the unlocking process for the recipient of the lock state, i.e. buyer
         if (ourIdentity == lockState.receiver) {
-            val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
-            val exchangeRequestDTO = exchangeService.getExchangeRequestByTxId(lockState.txHash.toString())
+            val exchangeRequestDTO = getExchangeRequestByTxId(lockState.txHash.toString())
 
             // verify if the transaction is ok as per the shared exchange request
             verifySharedTransactionAgainstExchangeRequest(exchangeRequestDTO.sellerAssetRequest, signedEncumberedTx.tx)

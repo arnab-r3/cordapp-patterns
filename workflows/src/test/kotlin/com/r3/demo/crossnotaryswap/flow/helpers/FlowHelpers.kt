@@ -9,32 +9,48 @@ import com.r3.corda.lib.tokens.workflows.flows.rpc.*
 import com.r3.corda.lib.tokens.workflows.types.PartyAndAmount
 import com.r3.corda.lib.tokens.workflows.types.PartyAndToken
 import com.r3.corda.lib.tokens.workflows.utilities.heldBy
+import com.r3.demo.crossnotaryswap.flows.CurrencyFlows
+import com.r3.demo.crossnotaryswap.flows.NFTFlows
+import com.r3.demo.crossnotaryswap.flows.dto.TokenDefinition
 import net.corda.core.concurrent.CordaFuture
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.StateAndRef
+import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
 import net.corda.testing.node.StartedMockNode
 
 /** Create an evolvable token. */
-fun <T : EvolvableTokenType> StartedMockNode.createEvolvableToken(evolvableToken: T, notary: Party, observers: List<Party> = emptyList()): CordaFuture<SignedTransaction> {
-    return transaction { startFlow(CreateEvolvableTokens(transactionState = evolvableToken withNotary notary, observers = observers)) }
+fun <T : EvolvableTokenType> StartedMockNode.createEvolvableToken(
+    evolvableToken: T,
+    notary: Party,
+    observers: List<Party> = emptyList()
+): CordaFuture<SignedTransaction> {
+    return transaction {
+        startFlow(CreateEvolvableTokens(transactionState = evolvableToken withNotary notary,
+            observers = observers))
+    }
 }
 
 /** Update an evolvable token. */
-fun <T : EvolvableTokenType> StartedMockNode.updateEvolvableToken(old: StateAndRef<T>, new: T, observers: List<Party> = emptyList()): CordaFuture<SignedTransaction> {
+fun <T : EvolvableTokenType> StartedMockNode.updateEvolvableToken(
+    old: StateAndRef<T>,
+    new: T,
+    observers: List<Party> = emptyList()
+): CordaFuture<SignedTransaction> {
     return transaction { startFlow(UpdateEvolvableToken(oldStateAndRef = old, newState = new, observers = observers)) }
 }
 
 fun StartedMockNode.issueFungibleTokens(
-        issueTo: StartedMockNode,
-        amount: Amount<TokenType>,
-        anonymous: Boolean = true,
-        observers: List<Party> = emptyList()
+    issueTo: StartedMockNode,
+    amount: Amount<TokenType>,
+    anonymous: Boolean = true,
+    observers: List<Party> = emptyList()
 ): CordaFuture<SignedTransaction> {
     return transaction {
         if (anonymous) {
-            startFlow(ConfidentialIssueTokens(listOf(amount issuedBy legalIdentity() heldBy issueTo.legalIdentity()), observers))
+            startFlow(ConfidentialIssueTokens(listOf(amount issuedBy legalIdentity() heldBy issueTo.legalIdentity()),
+                observers))
         } else {
             startFlow(IssueTokens(listOf(amount issuedBy legalIdentity() heldBy issueTo.legalIdentity()), observers))
         }
@@ -42,14 +58,15 @@ fun StartedMockNode.issueFungibleTokens(
 }
 
 fun StartedMockNode.issueNonFungibleTokens(
-        token: TokenType,
-        issueTo: StartedMockNode,
-        anonymous: Boolean = true,
-        observers: List<Party> = emptyList()
+    token: TokenType,
+    issueTo: StartedMockNode,
+    anonymous: Boolean = true,
+    observers: List<Party> = emptyList()
 ): CordaFuture<SignedTransaction> {
     return transaction {
         if (anonymous) {
-            startFlow(ConfidentialIssueTokens(listOf(token issuedBy legalIdentity() heldBy issueTo.legalIdentity()), observers))
+            startFlow(ConfidentialIssueTokens(listOf(token issuedBy legalIdentity() heldBy issueTo.legalIdentity()),
+                observers))
         } else {
             startFlow(IssueTokens(listOf(token issuedBy legalIdentity() heldBy issueTo.legalIdentity()), observers))
         }
@@ -57,10 +74,10 @@ fun StartedMockNode.issueNonFungibleTokens(
 }
 
 fun StartedMockNode.moveFungibleTokens(
-        amount: Amount<TokenType>,
-        owner: StartedMockNode,
-        anonymous: Boolean = true,
-        observers: List<Party> = emptyList()
+    amount: Amount<TokenType>,
+    owner: StartedMockNode,
+    anonymous: Boolean = true,
+    observers: List<Party> = emptyList()
 ): CordaFuture<SignedTransaction> {
     return transaction {
         if (anonymous) {
@@ -72,10 +89,10 @@ fun StartedMockNode.moveFungibleTokens(
 }
 
 fun StartedMockNode.moveNonFungibleTokens(
-        token: TokenType,
-        owner: StartedMockNode,
-        anonymous: Boolean = true,
-        observers: List<Party> = emptyList()
+    token: TokenType,
+    owner: StartedMockNode,
+    anonymous: Boolean = true,
+    observers: List<Party> = emptyList()
 ): CordaFuture<SignedTransaction> {
     return transaction {
         if (anonymous) {
@@ -87,11 +104,11 @@ fun StartedMockNode.moveNonFungibleTokens(
 }
 
 fun StartedMockNode.redeemTokens(
-        token: TokenType,
-        issuer: StartedMockNode,
-        amount: Amount<TokenType>? = null,
-        anonymous: Boolean = true,
-        observers: List<Party> = emptyList()
+    token: TokenType,
+    issuer: StartedMockNode,
+    amount: Amount<TokenType>? = null,
+    anonymous: Boolean = true,
+    observers: List<Party> = emptyList()
 ): CordaFuture<SignedTransaction> {
     return if (anonymous && amount != null) {
         startFlow(ConfidentialRedeemFungibleTokens(amount, issuer.legalIdentity(), observers))
@@ -100,4 +117,37 @@ fun StartedMockNode.redeemTokens(
     } else {
         startFlow(RedeemFungibleTokens(amount, issuer.legalIdentity(), observers))
     }
+}
+
+
+
+fun StartedMockNode.defineNonFungibleToken(tokenDefinition: TokenDefinition): CordaFuture<SignedTransaction> =
+    transaction {
+        startFlow(NFTFlows.DefineNFTFlow(tokenDefinition))
+    }
+
+
+fun StartedMockNode.issueNonFungibleToken(
+    tokenIdentifier: String,
+    tokenClass: Class<out EvolvableTokenType>,
+    receivingParty: AbstractParty
+): CordaFuture<SignedTransaction> = transaction {
+    startFlow(NFTFlows.IssueNFTFlow(
+        tokenIdentifier,
+        tokenClass,
+        receivingParty
+    ))
+}
+
+fun StartedMockNode.issueFungibleTokens(
+    amount: Long,
+    currency: String,
+    receiver: Party? = null,
+    observers: List<Party> = emptyList()
+): CordaFuture<SignedTransaction>  = transaction {
+    startFlow(CurrencyFlows.IssueFiatCurrencyFlow(amount, currency, receiver, observers))
+}
+
+fun StartedMockNode.getRequestById(requestId: String) {
+    services.vaultService
 }

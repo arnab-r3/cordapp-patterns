@@ -3,7 +3,10 @@ package com.r3.demo.crossnotaryswap.flows
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.demo.crossnotaryswap.flows.dto.AbstractAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
-import com.r3.demo.crossnotaryswap.services.ExchangeRequestService
+import com.r3.demo.crossnotaryswap.flows.utils.getRequestById
+import com.r3.demo.crossnotaryswap.flows.utils.isExchangeAssetOwned
+import com.r3.demo.crossnotaryswap.flows.utils.newExchangeRequestFromDto
+import com.r3.demo.crossnotaryswap.flows.utils.setRequestStatus
 import com.r3.demo.crossnotaryswap.types.RequestStatus
 import com.r3.demo.generic.flowFail
 import net.corda.core.flows.*
@@ -35,9 +38,7 @@ object InitiateExchangeFlows {
         @Suspendable
         override fun call(): String {
 
-            val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
-
-            if (!exchangeService.isExchangeAssetOwned(buyerAssetRequest, ourIdentity))
+            if (!isExchangeAssetOwned(buyerAssetRequest, ourIdentity))
                 flowFail("The specified asset does not belong to us " +
                         "or is in insufficient quantity: $buyerAssetRequest")
 
@@ -48,14 +49,12 @@ object InitiateExchangeFlows {
                 buyerAssetRequest = buyerAssetRequest
             )
 
-            exchangeService.newExchangeRequestFromDto(exchangeRequestDto)
+            newExchangeRequestFromDto(exchangeRequestDto)
             val sellerSession = initiateFlow(sellerParty)
             sellerSession.send(exchangeRequestDto)
 
-            logger.info("Returning exchange request id: ${exchangeRequestDto.requestId.toString()}")
             return exchangeRequestDto.requestId.toString()
         }
-
     }
 
     /**
@@ -66,10 +65,9 @@ object InitiateExchangeFlows {
 
         @Suspendable
         override fun call() {
-            val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
             // receive the request and save it
             val exchangeRequestDto = counterPartySession.receive<ExchangeRequestDTO>().unwrap { it }
-            exchangeService.newExchangeRequestFromDto(exchangeRequestDto)
+            newExchangeRequestFromDto(exchangeRequestDto)
         }
     }
 
@@ -90,12 +88,11 @@ object InitiateExchangeFlows {
         @Suspendable
         override fun call() {
 
-            val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
-            val exchangeRequestDto = exchangeService.getRequestById(requestId)
+            val exchangeRequestDto = getRequestById(requestId)
             val counterPartySession = initiateFlow(exchangeRequestDto.buyer)
 
             // check if we have sufficient balance of the requested asset
-            if (!exchangeService.isExchangeAssetOwned(exchangeRequestDto.sellerAssetRequest, ourIdentity)) {
+            if (!isExchangeAssetOwned(exchangeRequestDto.sellerAssetRequest, ourIdentity)) {
                 val reason = "The specified asset does not belong to us " +
                         "or is in insufficient quantity: ${exchangeRequestDto.sellerAssetRequest}"
                 val rejectedRequest = exchangeRequestDto.deny(reason)
@@ -107,11 +104,11 @@ object InitiateExchangeFlows {
 
             // set the status appropriately on the dto and send the response
             val exchangeRequestResponseDto = if (approved) {
-                exchangeService.setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.APPROVED)
+                setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.APPROVED)
                 exchangeRequestDto.approve()
             }
             else {
-                exchangeService.setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.DENIED, rejectionReason)
+                setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.DENIED, rejectionReason)
                 exchangeRequestDto.deny(rejectionReason)
             }
 
@@ -127,27 +124,26 @@ object InitiateExchangeFlows {
 
         @Suspendable
         override fun call() {
-            val exchangeService = serviceHub.cordaService(ExchangeRequestService::class.java)
 
             val exchangeRequestResponse = counterPartySession.receive<ExchangeRequestDTO>().unwrap { it }
 
-            val exchangeRequestDto = exchangeService.getRequestById(exchangeRequestResponse.requestId.toString())
+            val exchangeRequestDto = getRequestById(exchangeRequestResponse.requestId.toString())
 
 
             if (exchangeRequestDto != exchangeRequestResponse) {
                 val reason =
                     "One or more attributes in the response has changed. Cannot proceed with this exchange request"
-                exchangeService.setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.ABORTED, reason)
+                setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.ABORTED, reason)
                 flowFail(reason)
             }
 
             if (exchangeRequestResponse.requestStatus == null) {
                 val reason = "The response from counterparty ${exchangeRequestResponse.seller} must contain the requestStatus"
-                exchangeService.setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.ABORTED, reason)
+                setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.ABORTED, reason)
                 flowFail(reason)
             }
 
-            exchangeService.setRequestStatus(exchangeRequestDto.requestId.toString(),
+            setRequestStatus(exchangeRequestDto.requestId.toString(),
                 exchangeRequestResponse.requestStatus, exchangeRequestDto.reason)
 
             subFlow(DraftTransferOfOwnershipFlow(exchangeRequestDto.requestId.toString()))
