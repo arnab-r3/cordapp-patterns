@@ -16,10 +16,7 @@ import com.r3.demo.generic.getDefaultTimeWindow
 import com.r3.demo.generic.getPreferredNotaryForToken
 import net.corda.core.crypto.Crypto
 import net.corda.core.crypto.SignatureMetadata
-import net.corda.core.flows.FlowLogic
-import net.corda.core.flows.FlowSession
-import net.corda.core.flows.ReceiveTransactionFlow
-import net.corda.core.flows.SendTransactionFlow
+import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.serialization.serialize
 import net.corda.core.transactions.TransactionBuilder
@@ -112,7 +109,7 @@ class DraftTransferOfOwnershipFlow(
 }
 
 
-class DraftTransferOfOwnershipHandler(private val counterPartySession: FlowSession) :
+class DraftTransferOfOwnershipFlowHandler(private val counterPartySession: FlowSession) :
     FlowLogic<Pair<String, ValidatedDraftTransferOfOwnership>>() {
 
     @Suspendable
@@ -235,5 +232,26 @@ class DraftTransferOfOwnershipHandler(private val counterPartySession: FlowSessi
             logger.warn("Failed to resolve transaction: ${e.message}")
             false
         }
+    }
+}
+
+@InitiatingFlow
+class DraftTransferOfOwnership(private val requestId: String) : FlowLogic<WireTransaction>() {
+
+    @Suspendable
+    override fun call(): WireTransaction {
+        val exchangeRequestDTO = getRequestById(requestId)
+        val sellerSession = initiateFlow(exchangeRequestDTO.seller)
+        return subFlow(DraftTransferOfOwnershipFlow(requestId, sellerSession))
+    }
+}
+
+@InitiatedBy(DraftTransferOfOwnership::class)
+class DraftTransferOfOwnershipHandler(private val counterPartySession: FlowSession) :
+    FlowLogic<Pair<String, ValidatedDraftTransferOfOwnership>>() {
+
+    @Suspendable
+    override fun call(): Pair<String, ValidatedDraftTransferOfOwnership> {
+        return subFlow(DraftTransferOfOwnershipFlowHandler(counterPartySession))
     }
 }

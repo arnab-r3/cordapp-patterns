@@ -82,7 +82,10 @@ fun FlowLogic<*>.setRequestStatus(requestId: String, requestStatus: RequestStatu
 fun FlowLogic<*>.setTxDetails(requestId: String, txId: String, tx: ByteArray) {
     val request = getRequestEntityById(requestId, serviceHub)
     serviceHub.withEntityManager {
-        if (request.requestStatus != null || request.requestStatus == RequestStatus.REQUESTED) {
+        if (request.requestStatus == null || request.requestStatus!! in listOf(RequestStatus.REQUESTED,
+                RequestStatus.DENIED,
+                RequestStatus.ABORTED)
+        ) {
             flowFail("Cannot set the transaction id for requests with no request status or REQUESTED request status")
         } else if (request.txId != null) {
             flowFail("Transaction id has already been set for request id $requestId")
@@ -227,5 +230,5 @@ fun FlowLogic<*>.getNotarySigFromEncumberedTx(
  * Utility to get transaction deadline as configured in [LockState]
  * @param signedEncumberedTx containing a single [LockState] with a [TimeWindow]
  */
-fun getDeadlineFromLockState(signedEncumberedTx: SignedTransaction) : Instant =
+fun getDeadlineFromLockState(signedEncumberedTx: SignedTransaction): Instant =
     signedEncumberedTx.coreTransaction.outputsOfType<LockState>().single().timeWindow.untilTime!!

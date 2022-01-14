@@ -33,15 +33,15 @@ fun <T : LinearState> linearPointer(id: String, clazz: Class<T>) = LinearPointer
 
 
 @Suspendable
-fun FlowLogic<*>.getPreferredNotaryForToken(tokenType: TokenType, backupSelector: (ServiceHub) -> Party = firstNotary()): Party {
+fun FlowLogic<*>.getPreferredNotaryForToken(
+    incomingTokenType: TokenType,
+    backupSelector: (ServiceHub) -> Party = firstNotary()
+): Party {
 
-    val currencyCode = if(tokenType.isPointer()){
-        val clazz = when (tokenType) {
-            is IssuedTokenType -> tokenType.tokenType.tokenClass
-            else -> tokenType.tokenClass
-        }
-        TokenRegistry.getTokenAbbreviation(clazz)
-    }
+    val tokenType = if (incomingTokenType is IssuedTokenType) incomingTokenType.tokenType else incomingTokenType
+
+    val currencyCode = if (tokenType.isPointer())
+        TokenRegistry.getTokenAbbreviation(tokenType.tokenClass)
     else
         tokenType.tokenIdentifier
 
@@ -65,19 +65,19 @@ fun FlowLogic<*>.getPreferredNotaryForToken(tokenType: TokenType, backupSelector
 }
 
 
-fun getDefaultTimeWindow(serviceHub: ServiceHub) : TimeWindow{
+fun getDefaultTimeWindow(serviceHub: ServiceHub): TimeWindow {
     val config: CordappConfig = serviceHub.getAppContext().config
     return try {
         val durationValue = config.getString("wiretx_timewindow")
         TimeWindow.untilOnly(Instant.now().plusSeconds(durationValue.toLong()))
-    }catch (e: CordappConfigException){
+    } catch (e: CordappConfigException) {
         TimeWindow.untilOnly(Instant.now().plusSeconds(300))
     }
 }
 
 @Suspendable
-fun ServiceHub.stateObservers(state: EvolvableTokenType) : List<Party> {
-    val observers = state.participants- state.maintainers - ourIdentity
+fun ServiceHub.stateObservers(state: EvolvableTokenType): List<Party> {
+    val observers = state.participants - state.maintainers - ourIdentity
     return observers.map { identityService.wellKnownPartyFromAnonymous(it)!! }
 }
 

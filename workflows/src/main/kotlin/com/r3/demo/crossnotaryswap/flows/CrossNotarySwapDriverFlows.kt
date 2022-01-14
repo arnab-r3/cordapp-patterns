@@ -70,7 +70,7 @@ object CrossNotarySwapDriverFlows {
 
             // get the draft transfer of ownership from the responder flow as a wireTransaction
             val (requestId, validatedDraftTransferOfOwnership) =
-                subFlow(DraftTransferOfOwnershipHandler(buyerSession))
+                subFlow(DraftTransferOfOwnershipFlowHandler(buyerSession))
 
             // Construct and offer the encumbered tokens
             val exchangeRequestDto = getRequestById(requestId)

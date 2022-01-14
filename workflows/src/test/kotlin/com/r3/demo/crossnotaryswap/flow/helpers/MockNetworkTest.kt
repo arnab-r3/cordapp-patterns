@@ -19,12 +19,12 @@ abstract class MockNetworkTest(
     val timeoutRule = Timeout(5, TimeUnit.MINUTES)
 
     companion object {
-        private fun createSequentialNodeNames(numberOfNodes: Int): List<CordaX500Name> {
+        fun createSequentialNodeNames(numberOfNodes: Int): List<CordaX500Name> {
             val partyOrgs = (1..numberOfNodes).map { "Party${it.toChar() + 64}" }.toTypedArray()
             return partyOrgs.map { CordaX500Name(it, "London", "GB") }
         }
 
-        private fun createSequentialNotaryNames(numberOfNodes: Int): List<CordaX500Name> {
+        fun createSequentialNotaryNames(numberOfNodes: Int): List<CordaX500Name> {
             val partyOrgs = (1..numberOfNodes).map { "Notary${it.toChar() + 64}" }.toTypedArray()
             return partyOrgs.map { CordaX500Name(it, "London", "GB") }
         }

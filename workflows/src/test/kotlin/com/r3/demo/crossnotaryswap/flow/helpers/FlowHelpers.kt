@@ -147,7 +147,3 @@ fun StartedMockNode.issueFungibleTokens(
 ): CordaFuture<SignedTransaction>  = transaction {
     startFlow(CurrencyFlows.IssueFiatCurrencyFlow(amount, currency, receiver, observers))
 }
-
-fun StartedMockNode.getRequestById(requestId: String) {
-    services.vaultService
-}
