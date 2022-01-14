@@ -3,6 +3,7 @@ package com.r3.demo.generic
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.corda.lib.accounts.workflows.ourIdentity
 import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
+import com.r3.corda.lib.tokens.contracts.types.IssuedTokenType
 import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.workflows.utilities.firstNotary
 import com.r3.demo.crossnotaryswap.flows.utils.TokenRegistry
@@ -34,8 +35,13 @@ fun <T : LinearState> linearPointer(id: String, clazz: Class<T>) = LinearPointer
 @Suspendable
 fun FlowLogic<*>.getPreferredNotaryForToken(tokenType: TokenType, backupSelector: (ServiceHub) -> Party = firstNotary()): Party {
 
-    val currencyCode = if(tokenType.isPointer())
-        TokenRegistry.getTokenAbbreviation(tokenType.tokenClass)
+    val currencyCode = if(tokenType.isPointer()){
+        val clazz = when (tokenType) {
+            is IssuedTokenType -> tokenType.tokenType.tokenClass
+            else -> tokenType.tokenClass
+        }
+        TokenRegistry.getTokenAbbreviation(clazz)
+    }
     else
         tokenType.tokenIdentifier
 

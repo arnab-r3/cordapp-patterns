@@ -9,7 +9,6 @@ import com.r3.demo.crossnotaryswap.types.AssetRequestType.NON_FUNGIBLE_ASSET_REQ
 import com.r3.demo.crossnotaryswap.types.RequestStatus
 import net.corda.core.contracts.Amount
 import net.corda.core.identity.AbstractParty
-import net.corda.core.node.ServiceHub
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.serialization.deserialize
 import net.corda.core.serialization.serialize
@@ -107,10 +106,6 @@ data class ExchangeRequestDTO(
         if (seller != other.seller) return false
         if (buyerAssetRequest != other.buyerAssetRequest) return false
         if (sellerAssetRequest != other.sellerAssetRequest) return false
-        if (requestStatus != other.requestStatus) return false
-        if (reason != other.reason) return false
-        if (txId != other.txId) return false
-        if (unsignedWireTransaction != other.unsignedWireTransaction) return false
 
         return true
     }

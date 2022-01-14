@@ -16,7 +16,10 @@ import com.r3.demo.generic.getDefaultTimeWindow
 import com.r3.demo.generic.getPreferredNotaryForToken
 import net.corda.core.crypto.Crypto
 import net.corda.core.crypto.SignatureMetadata
-import net.corda.core.flows.*
+import net.corda.core.flows.FlowLogic
+import net.corda.core.flows.FlowSession
+import net.corda.core.flows.ReceiveTransactionFlow
+import net.corda.core.flows.SendTransactionFlow
 import net.corda.core.identity.Party
 import net.corda.core.serialization.serialize
 import net.corda.core.transactions.TransactionBuilder
@@ -27,15 +30,13 @@ import net.corda.core.utilities.unwrap
  * The **buyer** would present the draft transfer of ownership to the seller
  * @param requestId of the negotiated [ExchangeRequestDTO]
  */
-@InitiatingFlow
-@StartableByRPC
-@StartableByService
 class DraftTransferOfOwnershipFlow(
-    private val requestId: String
-) : FlowLogic<Unit>() {
+    private val requestId: String,
+    private val sellerSession: FlowSession
+) : FlowLogic<WireTransaction>() {
 
     @Suspendable
-    override fun call() {
+    override fun call(): WireTransaction {
         // fetch request details
         val exchangeRequestDto = getRequestById(requestId)
 
@@ -51,7 +52,6 @@ class DraftTransferOfOwnershipFlow(
         val unsignedWireTx = constructedTxForTransfer.toWireTransaction(serviceHub)
 
         // initiate the session with the seller and send the wire transaction
-        val sellerSession = initiateFlow(exchangeRequestDto.seller)
         sellerSession.send(unsignedWireTx)
 
         // send the dependencies of the wire transaction too
@@ -70,15 +70,16 @@ class DraftTransferOfOwnershipFlow(
         // share the mapping of the Exchange request and the transaction so that the counterparty can verify it
         sellerSession.send(requestId to unsignedWireTx.id.toString())
 
+        return unsignedWireTx
+
     }
 
-    @Suspendable
     private fun addBuyerAssetToTransactionBuilder(
         transactionBuilder: TransactionBuilder,
         exchangeRequestDto: ExchangeRequestDTO
     ): TransactionBuilder {
         val seller = exchangeRequestDto.seller
-        return with (exchangeRequestDto.buyerAssetRequest) {
+        return with(exchangeRequestDto.buyerAssetRequest) {
             when (this) {
                 /* add the move tokens if it is a nft*/
                 is FungibleAssetRequest -> {
@@ -111,11 +112,11 @@ class DraftTransferOfOwnershipFlow(
 }
 
 
-@InitiatedBy(DraftTransferOfOwnershipFlow::class)
-class DraftTransferOfOwnershipHandler(private val counterPartySession: FlowSession) : FlowLogic<Unit>() {
+class DraftTransferOfOwnershipHandler(private val counterPartySession: FlowSession) :
+    FlowLogic<Pair<String, ValidatedDraftTransferOfOwnership>>() {
 
     @Suspendable
-    override fun call() {
+    override fun call(): Pair<String, ValidatedDraftTransferOfOwnership> {
 
         val unsignedWireTx = counterPartySession.receive<WireTransaction>().unwrap { it }
 
@@ -152,9 +153,7 @@ class DraftTransferOfOwnershipHandler(private val counterPartySession: FlowSessi
 
         verifySharedTransactionAgainstExchangeRequest(exchangeRequestDto.buyerAssetRequest, unsignedWireTx)
 
-        subFlow(OfferEncumberedTokens(exchangeRequestDTO = exchangeRequestDto,
-            validatedDraftTransferOfOwnership = validatedDraftTransferOfOwnership))
-
+        return requestId to validatedDraftTransferOfOwnership
     }
 
     /**

@@ -11,10 +11,9 @@ import net.corda.core.transactions.WireTransaction
  * @property wireTransaction the unsigned transaction to sign and finalise.
  * @return the transfer of ownership transaction, signed and finalised.
  */
-@StartableByRPC
-@InitiatingFlow
 class SignAndFinalizeTransferOfOwnership(
-    private val wireTransaction: WireTransaction
+    private val wireTransaction: WireTransaction,
+    private val sellerSession: FlowSession
 ) : FlowLogic<SignedTransaction>() {
 
     @Suspendable
@@ -24,13 +23,13 @@ class SignAndFinalizeTransferOfOwnership(
         val tx = wireTransaction.toTransactionBuilder()
         val selfSignedTx = serviceHub.signInitialTransaction(tx, ourIdentity.owningKey)
 
-        // get participants of the transaction
-        val otherParticipants = tx.outputStates().flatMap { it.data.participants }
+        // get participants of the transaction apart from the buyer and the seller
+        val additionalParticipants = tx.outputStates().flatMap { it.data.participants }
             .distinct()
             .mapNotNull {
                 serviceHub.identityService.wellKnownPartyFromAnonymous(it)
             }
-            .filter { it != ourIdentity }
+            .filter { it !in listOf(ourIdentity, sellerSession.counterparty) }
 
         // get the signers of the transaction
         val otherSigners = tx.commands().flatMap { it.signers }
@@ -38,19 +37,19 @@ class SignAndFinalizeTransferOfOwnership(
             .mapNotNull {
                 serviceHub.identityService.partyFromKey(it)
             }
-            .filter { it != ourIdentity }
+            .filter { it !in listOf(ourIdentity, sellerSession.counterparty) }
 
         // collect signatures
         val signerSessions = otherSigners.map { initiateFlow(it) }
         val signedTx = subFlow(
             CollectSignaturesFlow(
                 selfSignedTx,
-                signerSessions
+                signerSessions + sellerSession
             )
         )
         //finalize transaction
-        val participantSessions = otherParticipants.map { initiateFlow(it) }
-        return subFlow(FinalityFlow(signedTx, participantSessions))
+        val participantSessions = additionalParticipants.map { initiateFlow(it) }
+        return subFlow(FinalityFlow(signedTx, participantSessions + sellerSession))
     }
 
     /**
@@ -77,7 +76,6 @@ class SignAndFinalizeTransferOfOwnership(
  * Responder flow for [SignAndFinalizeTransferOfOwnership].
  * Sign and finalise the art transfer transaction.
  */
-@InitiatedBy(SignAndFinalizeTransferOfOwnership::class)
 class SignAndFinaliseTxForPushHandler(private val otherSession: FlowSession) : FlowLogic<Unit>() {
     @Suspendable
     override fun call() {

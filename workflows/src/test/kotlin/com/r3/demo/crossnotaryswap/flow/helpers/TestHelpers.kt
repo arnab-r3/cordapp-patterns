@@ -2,6 +2,8 @@ package com.r3.demo.crossnotaryswap.flow.helpers
 
 import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.demo.crossnotaryswap.flows.CurrencyFlows
+import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
+import com.r3.demo.crossnotaryswap.flows.utils.getRequestEntityById
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.LinearState
@@ -40,12 +42,13 @@ inline fun <reified T : LinearState> StateAndRef<T>.linearId() = state.data.line
 fun assertHasTransaction(tx: SignedTransaction, network: MockNetwork, vararg nodes: StartedMockNode) {
     network.waitQuiescent()
     nodes.forEach {
-        assertNotNull(it.services.validatedTransactions.getTransaction(tx.id), "Could not find ${tx.id} in ${it.legalIdentity()} validated transactions")
+        assertNotNull(it.services.validatedTransactions.getTransaction(tx.id),
+            "Could not find ${tx.id} in ${it.legalIdentity()} validated transactions")
     }
 }
 
 fun assertTransactionUsesNotary(tx: SignedTransaction, network: MockNetwork, notary: StartedMockNode) {
-    require(notary.legalIdentity().name.organisation.contains("Notary")){
+    require(notary.legalIdentity().name.organisation.contains("Notary")) {
         "Node should be of type Notary"
     }
     network.waitQuiescent()
@@ -64,7 +67,8 @@ fun assertTransactionUsesNotary(tx: SignedTransaction, network: MockNetwork, not
 fun assertNotHasTransaction(tx: SignedTransaction, network: MockNetwork, vararg nodes: StartedMockNode) {
     network.waitQuiescent()
     nodes.forEach {
-        assertNull(it.services.validatedTransactions.getTransaction(tx.id), "Found ${tx.id} in ${it.legalIdentity()} validated transactions")
+        assertNull(it.services.validatedTransactions.getTransaction(tx.id),
+            "Found ${tx.id} in ${it.legalIdentity()} validated transactions")
     }
 }
 
@@ -74,16 +78,29 @@ fun assertHasBalance(network: MockNetwork, amount: Amount<TokenType>, node: Star
     assertEquals(amount, queriedAmount)
 }
 
-inline fun <reified T : ContractState> assertHasStateAndRef(stateAndRef: StateAndRef<T>, vararg nodes: StartedMockNode, stateStatus: Vault.StateStatus = Vault.StateStatus.UNCONSUMED) {
+inline fun <reified T : ContractState> assertHasStateAndRef(
+    stateAndRef: StateAndRef<T>,
+    vararg nodes: StartedMockNode,
+    stateStatus: Vault.StateStatus = Vault.StateStatus.UNCONSUMED
+) {
     val criteria = QueryCriteria.VaultQueryCriteria(stateStatus)
     nodes.forEach {
         assert(it.services.vaultService.queryBy<T>(criteria).states.contains(stateAndRef)) { "Could not find $stateAndRef in ${it.legalIdentity()} vault" }
     }
 }
 
-inline fun <reified T : ContractState> assertNotHasStateAndRef(stateAndRef: StateAndRef<T>, vararg nodes: StartedMockNode, stateStatus: Vault.StateStatus = Vault.StateStatus.UNCONSUMED) {
+inline fun <reified T : ContractState> assertNotHasStateAndRef(
+    stateAndRef: StateAndRef<T>,
+    vararg nodes: StartedMockNode,
+    stateStatus: Vault.StateStatus = Vault.StateStatus.UNCONSUMED
+) {
     val criteria = QueryCriteria.VaultQueryCriteria(stateStatus)
     nodes.forEach {
         assert(!it.services.vaultService.queryBy<T>(criteria).states.contains(stateAndRef)) { "Found $stateAndRef in ${it.legalIdentity()} vault" }
     }
 }
+
+fun StateAndRef<LinearState>.getLinearId() = state.data.linearId.toString()
+fun getExchangeRequestDto(requestId: String, startedMockNode: StartedMockNode) =
+    ExchangeRequestDTO.fromExchangeRequestEntity(
+        getRequestEntityById(requestId, startedMockNode.services))

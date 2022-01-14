@@ -2,25 +2,26 @@ package com.r3.demo.crossnotaryswap.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.corda.lib.tokens.contracts.states.AbstractToken
-import com.r3.corda.lib.tokens.workflows.utilities.sessionsForParticipants
+import com.r3.corda.lib.tokens.workflows.utilities.sessionsForParties
 import com.r3.demo.crossnotaryswap.contracts.LockContract
 import com.r3.demo.crossnotaryswap.flows.utils.addMoveTokens
 import com.r3.demo.crossnotaryswap.states.LockState
 import com.r3.demo.generic.argFail
 import net.corda.core.crypto.SecureHash
 import net.corda.core.crypto.TransactionSignature
-import net.corda.core.flows.*
+import net.corda.core.flows.FinalityFlow
+import net.corda.core.flows.FlowLogic
+import net.corda.core.flows.FlowSession
+import net.corda.core.flows.ReceiveFinalityFlow
 import net.corda.core.node.StatesToRecord
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 
-
-@InitiatingFlow
-@StartableByRPC
 class UnlockEncumberedTokensFlow
     (
     private val encumberedTxHash: SecureHash,
-    private val notarySignatureOnBuyerAssetTransfer: TransactionSignature
+    private val notarySignatureOnBuyerAssetTransfer: TransactionSignature,
+    private val sellerSession: FlowSession
 ) : FlowLogic<SignedTransaction>() {
 
     @Suspendable
@@ -43,7 +44,7 @@ class UnlockEncumberedTokensFlow
 
         // build transaction & verify the tx
         val transactionBuilder = TransactionBuilder(encumberedTransaction.notary!!)
-        val constructedUnlockTx = transactionBuilder.apply{
+        val constructedUnlockTx = transactionBuilder.apply {
             addMoveTokens(inputs = tokensWithEncumbranceOwnedByComposite,
                 outputs = tokensWithNewHolder,
                 additionalKeys = emptyList()
@@ -58,16 +59,16 @@ class UnlockEncumberedTokensFlow
         val selfSignedUnlockTx = serviceHub.signInitialTransaction(constructedUnlockTx)
 
         // send it to other participants
-        val participantSessions = sessionsForParticipants(listOf(lockState.state.data))
+        val otherParticipantSessions =
+            sessionsForParties(lockState.state.data.participants - ourIdentity - sellerSession.counterparty)
 
         return subFlow(FinalityFlow(transaction = selfSignedUnlockTx,
-            sessions = participantSessions,
+            sessions = otherParticipantSessions + sellerSession,
             statesToRecord = StatesToRecord.ALL_VISIBLE))
     }
 }
 
-@InitiatedBy(UnlockEncumberedTokensFlow::class)
-class UnlockEncumberedTokensFlowHandler(private val counterPartySession: FlowSession): FlowLogic<SignedTransaction>() {
+class UnlockEncumberedTokensFlowHandler(private val counterPartySession: FlowSession) : FlowLogic<SignedTransaction>() {
 
     @Suspendable
     override fun call(): SignedTransaction {

@@ -7,22 +7,28 @@ import com.r3.corda.lib.tokens.contracts.states.NonFungibleToken
 import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.corda.lib.tokens.workflows.utilities.heldTokenAmountCriteria
 import com.r3.corda.lib.tokens.workflows.utilities.rowsToAmount
+import com.r3.corda.lib.tokens.workflows.utilities.sumTokenCriteria
 import com.r3.demo.crossnotaryswap.flows.dto.AbstractAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
 import com.r3.demo.crossnotaryswap.flows.dto.FungibleAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.NonFungibleAssetRequest
 import com.r3.demo.crossnotaryswap.schemas.ExchangeRequest
 import com.r3.demo.crossnotaryswap.services.ExchangeRequestService
+import com.r3.demo.crossnotaryswap.states.LockState
 import com.r3.demo.crossnotaryswap.types.RequestStatus
 import com.r3.demo.generic.argFail
 import com.r3.demo.generic.flowFail
+import net.corda.core.contracts.TimeWindow
 import net.corda.core.contracts.UniqueIdentifier
+import net.corda.core.crypto.TransactionSignature
 import net.corda.core.flows.FlowLogic
 import net.corda.core.identity.AbstractParty
 import net.corda.core.internal.uncheckedCast
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.Vault
 import net.corda.core.node.services.vault.QueryCriteria
+import net.corda.core.transactions.SignedTransaction
+import java.time.Instant
 
 
 /**
@@ -107,22 +113,22 @@ fun FlowLogic<*>.newExchangeRequestFromDto(exchangeRequestDTO: ExchangeRequestDT
 /**
  * Checks if the specified asset is owned by our identity
  * @param abstractAssetRequest to be checked against our vault
- * @param ourIdentity the identity to be checked against
+ * @param holder the identity to be checked against
  */
 @Suspendable
-fun FlowLogic<*>.isExchangeAssetOwned(abstractAssetRequest: AbstractAssetRequest, ourIdentity: AbstractParty): Boolean {
+fun FlowLogic<*>.isExchangeAssetOwned(abstractAssetRequest: AbstractAssetRequest, holder: AbstractParty): Boolean {
 
     return with(abstractAssetRequest) {
         when (this) {
             is FungibleAssetRequest -> {
-                val matchingAssetsAgainstRequest =
-                    getMatchingAssetsAgainstRequest(abstractAssetRequest, ourIdentity)
-                rowsToAmount(tokenAmount.token, uncheckedCast(matchingAssetsAgainstRequest)) >= tokenAmount
+                val heldTokenCriteria = heldTokenAmountCriteria(tokenAmount.token, holder).and(sumTokenCriteria())
+                val results = serviceHub.vaultService.queryBy(FungibleToken::class.java, heldTokenCriteria)
+                rowsToAmount(tokenAmount.token, uncheckedCast(results)) >= tokenAmount
             }
             is NonFungibleAssetRequest -> {
                 val nonFungibleToken: Vault.Page<NonFungibleToken> =
-                    uncheckedCast(getMatchingAssetsAgainstRequest(abstractAssetRequest, ourIdentity))
-                nonFungibleToken.states.single().state.data.holder == ourIdentity
+                    uncheckedCast(getMatchingAssetsAgainstRequest(abstractAssetRequest, holder))
+                nonFungibleToken.states.single().state.data.holder == holder
             }
             else -> argFail("Cannot determine asset request type. It needs to be either a regular fungible or non fungible asset")
         }
@@ -152,7 +158,6 @@ fun FlowLogic<*>.getMatchingAssetsAgainstRequest(
                     relevancyStatus = Vault.RelevancyStatus.RELEVANT
                 )
                 serviceHub.vaultService.queryBy(NonFungibleToken::class.java, query)
-
             }
             else -> argFail("Cannot determine asset request type. It needs to be either a regular fungible or non fungible asset")
         }
@@ -164,9 +169,9 @@ fun FlowLogic<*>.getMatchingAssetsAgainstRequest(
  * @param abstractAssetRequest to use
  */
 @Suspendable
-fun FlowLogic<*>.getTokenTypeFromAssetRequest(abstractAssetRequest: AbstractAssetRequest) : TokenType {
-    return with(abstractAssetRequest){
-        when(this) {
+fun FlowLogic<*>.getTokenTypeFromAssetRequest(abstractAssetRequest: AbstractAssetRequest): TokenType {
+    return with(abstractAssetRequest) {
+        when (this) {
             is FungibleAssetRequest -> tokenAmount.token
             is NonFungibleAssetRequest -> {
                 val query = QueryCriteria.LinearStateQueryCriteria(
@@ -199,3 +204,28 @@ fun FlowLogic<*>.getExchangeRequestByTxId(transactionId: String): ExchangeReques
     }
     return ExchangeRequestDTO.fromExchangeRequestEntity(queryResults.first())
 }
+
+/**
+ * Extract the notary signature from the buyer transaction as configured in the [LockState]
+ * of the encumbered transaction
+ * @param sellerEncumberedTx containing information about buyer's notary in the [LockState]
+ * @param buyerTx finalised
+ */
+fun FlowLogic<*>.getNotarySigFromEncumberedTx(
+    sellerEncumberedTx: SignedTransaction,
+    buyerTx: SignedTransaction
+): TransactionSignature {
+    val toLedgerTransaction = sellerEncumberedTx.toLedgerTransaction(serviceHub)
+    val lockState = toLedgerTransaction.outputsOfType(LockState::class.java).single()
+    return buyerTx
+        .sigs
+        .single { it.by == lockState.controllingNotary.owningKey }
+
+}
+
+/**
+ * Utility to get transaction deadline as configured in [LockState]
+ * @param signedEncumberedTx containing a single [LockState] with a [TimeWindow]
+ */
+fun getDeadlineFromLockState(signedEncumberedTx: SignedTransaction) : Instant =
+    signedEncumberedTx.coreTransaction.outputsOfType<LockState>().single().timeWindow.untilTime!!

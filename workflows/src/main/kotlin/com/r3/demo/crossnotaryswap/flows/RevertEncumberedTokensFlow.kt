@@ -2,20 +2,24 @@ package com.r3.demo.crossnotaryswap.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.corda.lib.tokens.contracts.states.AbstractToken
-import com.r3.corda.lib.tokens.workflows.utilities.sessionsForParticipants
+import com.r3.corda.lib.tokens.workflows.utilities.sessionsForParties
 import com.r3.demo.crossnotaryswap.contracts.LockContract
 import com.r3.demo.crossnotaryswap.flows.utils.addMoveTokens
 import com.r3.demo.crossnotaryswap.states.LockState
 import com.r3.demo.generic.argFail
 import net.corda.core.crypto.SecureHash
-import net.corda.core.flows.*
+import net.corda.core.flows.FinalityFlow
+import net.corda.core.flows.FlowLogic
+import net.corda.core.flows.FlowSession
+import net.corda.core.flows.ReceiveFinalityFlow
 import net.corda.core.node.StatesToRecord
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 
-@InitiatingFlow
-@StartableByRPC
-class RevertEncumberedTokensFlow(private val encumberedTxHash: SecureHash) : FlowLogic<SignedTransaction>() {
+class RevertEncumberedTokensFlow(
+    private val encumberedTxHash: SecureHash,
+    private val buyerSession: FlowSession
+) : FlowLogic<SignedTransaction>() {
 
     @Suspendable
     override fun call(): SignedTransaction {
@@ -44,16 +48,17 @@ class RevertEncumberedTokensFlow(private val encumberedTxHash: SecureHash) : Flo
 
         val selfSignedTx = serviceHub.signInitialTransaction(txBuilder)
 
-        val participantSessions = sessionsForParticipants(listOf(lockState.state.data))
+        val participantSessions =
+            sessionsForParties(lockState.state.data.participants - ourIdentity - buyerSession.counterparty)
+
         return subFlow(FinalityFlow(
             transaction = selfSignedTx,
-            sessions = participantSessions,
+            sessions = participantSessions + buyerSession,
             statesToRecord = StatesToRecord.ALL_VISIBLE
         ))
     }
 }
 
-@InitiatedBy(RevertEncumberedTokensFlow::class)
 class RevertEncumberedTokensFlowHandler(private val counterPartySession: FlowSession) : FlowLogic<SignedTransaction>() {
 
     @Suspendable

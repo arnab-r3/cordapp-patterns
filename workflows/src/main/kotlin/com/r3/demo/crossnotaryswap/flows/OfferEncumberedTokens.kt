@@ -11,12 +11,15 @@ import com.r3.demo.crossnotaryswap.states.ValidatedDraftTransferOfOwnership
 import com.r3.demo.generic.flowFail
 import com.r3.demo.generic.getPreferredNotaryForToken
 import com.template.flows.CollectSignaturesForComposites
+import com.template.flows.CollectSignaturesForCompositesHandler
 import net.corda.core.contracts.TimeWindow
 import net.corda.core.crypto.CompositeKey
 import net.corda.core.crypto.SignatureMetadata
-import net.corda.core.flows.*
+import net.corda.core.flows.FinalityFlow
+import net.corda.core.flows.FlowLogic
+import net.corda.core.flows.FlowSession
+import net.corda.core.flows.ReceiveFinalityFlow
 import net.corda.core.identity.AnonymousParty
-import net.corda.core.identity.Party
 import net.corda.core.node.StatesToRecord
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
@@ -29,10 +32,10 @@ import net.corda.core.transactions.WireTransaction
  * @param validatedDraftTransferOfOwnership object encapsulating information about the draft unsigned [WireTransaction],
  * the notary [SignatureMetadata]
  */
-@InitiatingFlow
 class OfferEncumberedTokens(
     private val exchangeRequestDTO: ExchangeRequestDTO,
-    private val validatedDraftTransferOfOwnership: ValidatedDraftTransferOfOwnership
+    private val validatedDraftTransferOfOwnership: ValidatedDraftTransferOfOwnership,
+    private val buyerSession: FlowSession
 ) : FlowLogic<SignedTransaction>() {
 
     @Suspendable
@@ -63,15 +66,12 @@ class OfferEncumberedTokens(
         val signedTx = subFlow(
             CollectSignaturesForComposites(
                 selfSignedTx,
-                listOf(exchangeRequestDTO.buyer as Party)
+                setOf(buyerSession)
             ))
 
-        // finalize
-        // TODO add observer aware finality flow in the future
-        val sessions = listOf(initiateFlow(exchangeRequestDTO.buyer))
         return subFlow(FinalityFlow(
             transaction = signedTx,
-            sessions = sessions
+            sessions = listOf(buyerSession)
         ))
     }
 
@@ -125,12 +125,15 @@ class OfferEncumberedTokens(
 /**
  * Buyer's response to the offered encumbered tokens
  */
-@InitiatedBy(OfferEncumberedTokens::class)
-class OfferEncumberedTokensFlowHandler(private val counterPartySession: FlowSession) : FlowLogic<Unit>() {
+class OfferEncumberedTokensFlowHandler(private val counterPartySession: FlowSession) :
+    FlowLogic<SignedTransaction>() {
 
     @Suspendable
-    override fun call() {
+    override fun call(): SignedTransaction {
         serviceHub.registerCompositeKey(ourIdentity, counterPartySession.counterparty)
+
+        subFlow(CollectSignaturesForCompositesHandler(counterPartySession))
+
         val signedEncumberedTx = subFlow(ReceiveFinalityFlow(otherSideSession = counterPartySession,
             statesToRecord = StatesToRecord.ALL_VISIBLE))
 
@@ -138,28 +141,14 @@ class OfferEncumberedTokensFlowHandler(private val counterPartySession: FlowSess
         val lockState = toLedgerTransaction.outputsOfType(LockState::class.java).single()
 
         // execute the rest of the unlocking process for the recipient of the lock state, i.e. buyer
-        if (ourIdentity == lockState.receiver) {
-            val exchangeRequestDTO = getExchangeRequestByTxId(lockState.txHash.toString())
+        // TODO check identity later
+        //if (ourIdentity == lockState.receiver) {
+        val exchangeRequestDTO = getExchangeRequestByTxId(lockState.txHash.toString())
 
-            // verify if the transaction is ok as per the shared exchange request
-            verifySharedTransactionAgainstExchangeRequest(exchangeRequestDTO.sellerAssetRequest, signedEncumberedTx.tx)
+        // verify if the transaction is ok as per the shared exchange request
+        verifySharedTransactionAgainstExchangeRequest(exchangeRequestDTO.sellerAssetRequest, signedEncumberedTx.tx)
 
-            val unsignedWireTransaction =
-                exchangeRequestDTO.unsignedWireTransaction ?: flowFail("Exchange request should contain the " +
-                        "unsigned wire transaction we constructed and shared earlier, failing since it does not!")
-
-            // TODO trigger unlock encumbered of tokens
-            // start by confirming the unsigned wire transaction
-            val signedBuyerAssetTransferTx = subFlow(SignAndFinalizeTransferOfOwnership(unsignedWireTransaction))
-
-            // get the signature of the notary
-            val notarySignature = signedBuyerAssetTransferTx
-                .sigs
-                .single { it.by == lockState.controllingNotary.owningKey }
-
-            subFlow(UnlockEncumberedTokensFlow(signedEncumberedTx.id, notarySignature))
-        }
-
+        return signedEncumberedTx
     }
 
 }

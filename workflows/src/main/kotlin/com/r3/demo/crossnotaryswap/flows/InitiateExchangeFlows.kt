@@ -126,10 +126,7 @@ object InitiateExchangeFlows {
         override fun call() {
 
             val exchangeRequestResponse = counterPartySession.receive<ExchangeRequestDTO>().unwrap { it }
-
             val exchangeRequestDto = getRequestById(exchangeRequestResponse.requestId.toString())
-
-
             if (exchangeRequestDto != exchangeRequestResponse) {
                 val reason =
                     "One or more attributes in the response has changed. Cannot proceed with this exchange request"
@@ -145,10 +142,6 @@ object InitiateExchangeFlows {
 
             setRequestStatus(exchangeRequestDto.requestId.toString(),
                 exchangeRequestResponse.requestStatus, exchangeRequestDto.reason)
-
-            subFlow(DraftTransferOfOwnershipFlow(exchangeRequestDto.requestId.toString()))
         }
-
     }
-
 }
