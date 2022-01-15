@@ -5,10 +5,9 @@ import com.natpryce.hamkrest.assertion.assertThat
 import com.r3.corda.lib.tokens.contracts.states.FungibleToken
 import com.r3.corda.lib.tokens.contracts.states.NonFungibleToken
 import com.r3.corda.lib.tokens.contracts.types.TokenType
+import com.r3.demo.crossnotaryswap.contracts.LockContract
 import com.r3.demo.crossnotaryswap.flow.helpers.*
-import com.r3.demo.crossnotaryswap.flows.DraftTransferOfOwnership
-import com.r3.demo.crossnotaryswap.flows.InitiateExchangeFlows
-import com.r3.demo.crossnotaryswap.flows.OfferEncumberedTokens
+import com.r3.demo.crossnotaryswap.flows.*
 import com.r3.demo.crossnotaryswap.flows.dto.FungibleAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.KittyTokenDefinition
 import com.r3.demo.crossnotaryswap.flows.dto.NonFungibleAssetRequest
@@ -19,19 +18,21 @@ import com.r3.demo.crossnotaryswap.states.ValidatedDraftTransferOfOwnership
 import com.r3.demo.crossnotaryswap.types.RequestStatus
 import net.corda.core.crypto.CompositeKey
 import net.corda.core.crypto.SignableData
+import net.corda.core.crypto.toStringShort
 import net.corda.core.identity.CordaX500Name
-import net.corda.core.transactions.CoreTransaction
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.contextLogger
 import net.corda.core.utilities.getOrThrow
 import net.corda.testing.node.StartedMockNode
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.math.BigDecimal
 import java.security.PublicKey
 import java.time.Instant
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 val nodeNames = listOf(
     "O=Buyer,L=London,C=GB",
@@ -75,6 +76,8 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
     private lateinit var unsignedWireTx: WireTransaction
     private lateinit var validatedDraftTransferOfOwnership: ValidatedDraftTransferOfOwnership
     private lateinit var encumberedTx: SignedTransaction
+    private lateinit var lockState: LockState
+    private lateinit var finalizedBuyerTx: SignedTransaction
 
     @Test
     fun `initiate cross notary swap`() {
@@ -105,6 +108,10 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
 
         kittyTokenType = issueTxn.singleOutput<NonFungibleToken>().state.data.tokenType
         // party D is the buyer and exchanging the NFT with the above id in exchange of 10 INR token
+
+        logger.info("Buyer key is: ${buyerNode.legalIdentity().owningKey.toStringShort()}")
+        logger.info("Seller key is: ${sellerNode.legalIdentity().owningKey.toStringShort()}")
+
         val exchangeRequestId = buyerNode.startFlow(
             InitiateExchangeFlows.ExchangeRequesterFlow(
                 sellerParty = sellerNode.legalIdentity(),
@@ -167,7 +174,16 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
     /**
      * helper functions for the next couple of tests
      */
-    private fun testLockState(compositeKey: PublicKey, lockState: LockState) {
+    private fun testLock(
+        encumberedTx: SignedTransaction,
+        compositeKey: PublicKey
+    ) {
+
+        val lockCommand = encumberedTx.tx.commands.find { it.value is LockContract.Encumber }
+        assertNotNull(lockCommand)
+        assertThat(lockCommand!!.signers.single(), equalTo(compositeKey))
+
+        lockState = encumberedTx.coreTransaction.outputsOfType<LockState>().single()
         assertThat(lockState.compositeKey, equalTo(compositeKey))
         assertThat(lockState.controllingNotary, equalTo(notaryBNode.legalIdentity()))
         assertThat(lockState.timeWindow.untilTime!!,
@@ -180,24 +196,31 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
     }
 
     private fun testFungibleTokens(
-        fungibleTokens: List<FungibleToken>,
-        compositeKey: PublicKey
+        encumberedTx: SignedTransaction,
+        owningKey: PublicKey
     ) {
+        assertThat(encumberedTx.coreTransaction.outputsOfType<FungibleToken>(), hasSize(greaterThanOrEqualTo(1)))
+        val fungibleTokens = encumberedTx.coreTransaction.outputsOfType<FungibleToken>()
         assertThat(fungibleTokens.filter { it.holder == sellerNode.legalIdentity() }.size, lessThanOrEqualTo(1))
-        assertThat(fungibleTokens.filter { it.holder.owningKey == compositeKey }.size, greaterThanOrEqualTo(1))
+        assertThat(fungibleTokens.filter { it.holder.owningKey == owningKey }.size, greaterThanOrEqualTo(1))
         val totalAmountTransferred =
             fungibleTokens
-                .filter { it.holder.owningKey == compositeKey }
+                .filter { it.holder.owningKey == owningKey }
                 .fold(BigDecimal.ZERO) { acc, fungibleToken ->
                     acc + fungibleToken.amount.toDecimal()
                 }
         val exchangeRequestDTO = getExchangeRequestDto(requestId, sellerNode)
         val requestedAmount = (exchangeRequestDTO.sellerAssetRequest as FungibleAssetRequest).tokenAmount.toDecimal()
         assertThat(totalAmountTransferred, equalTo(requestedAmount))
+        assertTransactionUsesNotary(encumberedTx,network,notaryANode)
     }
 
 
-    private fun testCyclicalEncumbrance(coreTransaction: CoreTransaction, compositeKey: PublicKey) {
+    private fun testCyclicalEncumbrance(
+        encumberedTx: SignedTransaction,
+        compositeKey: PublicKey
+    ) {
+        val coreTransaction = encumberedTx.coreTransaction
         val lockOutputs = coreTransaction.outputs.filter { it.data is LockState }
         val fungibleTokenOutputsToSender = coreTransaction
             .outputs
@@ -220,26 +243,50 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
         assertHasTransaction(encumberedTx, network, sellerNode, buyerNode)
         assertNotHasTransaction(encumberedTx, network, notaryANode, notaryBNode, centralBankNode, artistNode)
 
-        encumberedTx.coreTransaction.run {
-            assertThat(outputsOfType<LockState>(), hasSize(equalTo(1)))
-            val lockState = outputsOfType<LockState>().single()
-            assertThat(outputsOfType<FungibleToken>(), hasSize(greaterThanOrEqualTo(1)))
-            val fungibleTokens = outputsOfType<FungibleToken>()
-            assertThat(inputs, hasSize(greaterThanOrEqualTo(1)))
+        encumberedTx.run {
+            assertThat(coreTransaction.inputs, hasSize(greaterThanOrEqualTo(1)))
             val compositeKey = CompositeKey.Builder()
                 .addKey(sellerNode.legalIdentity().owningKey, 1)
                 .addKey(buyerNode.legalIdentity().owningKey, 1)
                 .build(1)
-            testLockState(compositeKey, lockState)
+
+            logger.info("CompositeKey is: ${compositeKey.toStringShort()}")
+
+            testLock(this, compositeKey)
             testCyclicalEncumbrance(this, compositeKey)
-            testFungibleTokens(fungibleTokens, compositeKey)
+            testFungibleTokens(this, compositeKey)
         }
     }
 
 
     @Test
-    fun `sign and finalize buyer transaction`(){
+    fun `test sign and finalize buyer transaction`() {
         `test offer encumbered tokens`()
+        finalizedBuyerTx = buyerNode.startFlow(
+            SignAndFinalizeTransferOfOwnership(requestId, unsignedWireTx)
+        ).getOrThrow()
 
+        assertThat(finalizedBuyerTx.tx, equalTo(unsignedWireTx))
+        val notarySignature = finalizedBuyerTx.sigs
+            .find { it.by == notaryBNode.legalIdentity().owningKey }
+        assertNotNull(notarySignature)
+        assertTrue(notarySignature?.verify(unsignedWireTx.id)!!)
+        assertThat(notarySignature.signatureMetadata, equalTo(lockState.txIdWithNotaryMetadata.signatureMetadata))
+        val transferredNonFungibleTokens = finalizedBuyerTx.coreTransaction.outputsOfType<NonFungibleToken>()
+        assertThat(transferredNonFungibleTokens, hasSize(equalTo(1)))
+        assertTransactionUsesNotary(finalizedBuyerTx,network,notaryBNode)
+
+    }
+
+    @Test
+    fun `test unlock encumbered tokens`() {
+        `test sign and finalize buyer transaction`()
+        val notarySignatureOnBuyerTx = finalizedBuyerTx.sigs
+            .find { it.by == lockState.controllingNotary.owningKey }
+        val unlockedTx =
+            buyerNode.startFlow(
+                UnlockEncumberedTokens(requestId, encumberedTx.id, notarySignatureOnBuyerTx!!)
+            ).getOrThrow()
+        testFungibleTokens(unlockedTx, buyerNode.legalIdentity().owningKey)
     }
 }

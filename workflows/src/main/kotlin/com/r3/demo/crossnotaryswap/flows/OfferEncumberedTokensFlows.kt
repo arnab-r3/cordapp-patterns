@@ -42,7 +42,7 @@ class OfferEncumberedTokensFlow(
 
         // create the composite key to transfer the seller asset to. This is to enable equal control of both the
         // buyer and seller of the asset.
-        val compositeKeyToTransferSellerAsset = serviceHub.registerCompositeKey(ourIdentity, buyerParty)
+        val compositeKeyToTransferSellerAsset = serviceHub.registerCompositeKey(ourIdentity, buyerSession.counterparty)
         val compositeKeyHolderParty = AnonymousParty(compositeKeyToTransferSellerAsset)
 
         // create the lock state that will encumber all tokens/states that the seller will transfer
@@ -55,7 +55,7 @@ class OfferEncumberedTokensFlow(
 
         // construct the transaction that encumbers all states on the lock state based on the exchange request
         val encumberedTransaction =
-            addEncumberedTokensForSeller(transactionBuilder, exchangeRequestDTO, lockState, compositeKeyHolderParty)
+            addEncumberedTokens(transactionBuilder, exchangeRequestDTO, lockState, compositeKeyHolderParty)
 
         // verify and sign
         encumberedTransaction.verify(serviceHub)
@@ -80,7 +80,7 @@ class OfferEncumberedTokensFlow(
      * @param compositeKeyHolderParty having a [CompositeKey] of both the seller and the buyer with equal weights
      */
     @Suspendable
-    private fun addEncumberedTokensForSeller(
+    private fun addEncumberedTokens(
         transactionBuilder: TransactionBuilder,
         exchangeRequestDTO: ExchangeRequestDTO,
         lockState: LockState,
@@ -91,7 +91,7 @@ class OfferEncumberedTokensFlow(
                 is NonFungibleAssetRequest -> {
                     addMoveToken(
                         serviceHub = serviceHub,
-                        tokenIdentifier = exchangeRequestDTO.sellerAssetRequest.tokenIdentifier.toString(),
+                        tokenIdentifier = exchangeRequestDTO.sellerAssetRequest.tokenIdentifier,
                         holder = compositeKeyHolderParty,
                         additionalKeys = listOf(exchangeRequestDTO.buyer.owningKey),
                         lockState = lockState

@@ -8,6 +8,7 @@ import com.r3.demo.crossnotaryswap.flows.utils.addMoveTokens
 import com.r3.demo.crossnotaryswap.flows.utils.getRequestById
 import com.r3.demo.crossnotaryswap.states.LockState
 import com.r3.demo.generic.argFail
+import net.corda.core.contracts.StateAndRef
 import net.corda.core.crypto.SecureHash
 import net.corda.core.crypto.TransactionSignature
 import net.corda.core.flows.*
@@ -31,9 +32,9 @@ class UnlockEncumberedTokensFlow(
         val lockState = encumberedTransaction.coreTransaction
             .outRefsOfType<LockState>().single()
 
-        // get the encumbered tokens owned by the composite key
-        val tokensWithEncumbranceOwnedByComposite = encumberedTransaction.coreTransaction
-            .outRefsOfType<AbstractToken>()
+        // get the encumbered tokens owned by the composite key and exclude any tokens the seller has sent to itself as change
+        val tokensWithEncumbranceOwnedByComposite =
+            getOurEncumberedTokenStates(encumberedTransaction)
 
         // make it ours
         val tokensWithNewHolder = tokensWithEncumbranceOwnedByComposite
@@ -53,7 +54,7 @@ class UnlockEncumberedTokensFlow(
         constructedUnlockTx.verify(serviceHub)
 
         // sign the tx
-        val selfSignedUnlockTx = serviceHub.signInitialTransaction(constructedUnlockTx)
+        val selfSignedUnlockTx = serviceHub.signInitialTransaction(constructedUnlockTx, ourIdentity.owningKey)
 
         // send it to other participants
         val otherParticipantSessions =
@@ -62,6 +63,23 @@ class UnlockEncumberedTokensFlow(
         return subFlow(FinalityFlow(transaction = selfSignedUnlockTx,
             sessions = otherParticipantSessions + sellerSession,
             statesToRecord = StatesToRecord.ALL_VISIBLE))
+    }
+
+    /**
+     * Return a list of our encumbered [StateAndRef<AbstractToken>] states from [SignedTransaction].
+     * This is to avoid the change transactions that the seller might have sent to itself. We do not want
+     * to consider those tokens. Moreover the encumbrance for those output states would be null
+     * @param signedTransaction filter outputs of this transaction.
+     * @return list of filtered [StateAndRef<CBDCToken>].
+     */
+    @Suspendable
+    private fun getOurEncumberedTokenStates(signedTransaction: SignedTransaction): List<StateAndRef<AbstractToken>> {
+        val tokenStates = signedTransaction.coreTransaction.outRefsOfType<AbstractToken>()
+
+        return tokenStates.filter {
+            val party = serviceHub.identityService.requireWellKnownPartyFromAnonymous(it.state.data.holder)
+            party == ourIdentity && it.state.encumbrance != null
+        }
     }
 }
 
