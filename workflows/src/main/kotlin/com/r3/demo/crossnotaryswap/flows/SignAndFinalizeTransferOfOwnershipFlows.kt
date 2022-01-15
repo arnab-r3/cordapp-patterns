@@ -1,6 +1,7 @@
 package com.r3.demo.crossnotaryswap.flows
 
 import co.paralleluniverse.fibers.Suspendable
+import com.r3.demo.crossnotaryswap.flows.utils.getRequestById
 import net.corda.core.flows.*
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
@@ -11,7 +12,7 @@ import net.corda.core.transactions.WireTransaction
  * @property wireTransaction the unsigned transaction to sign and finalise.
  * @return the transfer of ownership transaction, signed and finalised.
  */
-class SignAndFinalizeTransferOfOwnership(
+class SignAndFinalizeTransferOfOwnershipFlow(
     private val wireTransaction: WireTransaction,
     private val sellerSession: FlowSession
 ) : FlowLogic<SignedTransaction>() {
@@ -73,14 +74,34 @@ class SignAndFinalizeTransferOfOwnership(
 }
 
 /**
- * Responder flow for [SignAndFinalizeTransferOfOwnership].
+ * Responder flow for [SignAndFinalizeTransferOfOwnershipFlow].
  * Sign and finalise the art transfer transaction.
  */
-class SignAndFinaliseTxForPushHandler(private val otherSession: FlowSession) : FlowLogic<Unit>() {
+class SignAndFinalizeTransferOfOwnershipFlowHandler(private val otherSession: FlowSession) : FlowLogic<Unit>() {
     @Suspendable
     override fun call() {
         if (!serviceHub.myInfo.isLegalIdentity(otherSession.counterparty)) {
             subFlow(ReceiveFinalityFlow(otherSession))
         }
     }
+}
+
+@InitiatingFlow
+class SignAndFinalizeTransferOfOwnership(
+    private val requestId: String,
+    private val wireTransaction: WireTransaction) : FlowLogic<SignedTransaction>(){
+
+    @Suspendable
+    override fun call(): SignedTransaction {
+        val exchangeRequestDTO = getRequestById(requestId)
+        val sellerSession = initiateFlow(exchangeRequestDTO.seller)
+        return subFlow(SignAndFinalizeTransferOfOwnershipFlow(wireTransaction, sellerSession))
+    }
+
+}
+
+@InitiatedBy(SignAndFinalizeTransferOfOwnership::class)
+class SignAndFinalizeTransferOfOwnershipHandler(private val counterPartySession: FlowSession): FlowLogic<Unit>(){
+    @Suspendable
+    override fun call() = subFlow(SignAndFinalizeTransferOfOwnershipFlowHandler(counterPartySession))
 }

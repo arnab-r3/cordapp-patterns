@@ -19,13 +19,13 @@ data class ValidatedDraftTransferOfOwnership(
     val controllingNotary: Party,
     val notarySignatureMetadata: SignatureMetadata
 ) {
-    val txHash get() = SignableData(tx.id, notarySignatureMetadata)
+    val txIdWithNotaryMetadata get() = SignableData(tx.id, notarySignatureMetadata)
     val timeWindow get() = tx.timeWindow!!
 }
 
 @BelongsToContract(LockContract::class)
 data class LockState(
-    val txHash: SignableData,
+    val txIdWithNotaryMetadata: SignableData,
     val controllingNotary: Party,
     val timeWindow: TimeWindow,
     val creator: Party,
@@ -38,7 +38,7 @@ data class LockState(
         creator: Party,
         receiver: Party
     ) : this(
-        validatedDraftTransfer.txHash,
+        validatedDraftTransfer.txIdWithNotaryMetadata,
         validatedDraftTransfer.controllingNotary,
         validatedDraftTransfer.timeWindow,
         creator,
@@ -51,7 +51,7 @@ data class LockState(
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
         other as LockState
-        if (txHash != other.txHash) return false
+        if (txIdWithNotaryMetadata != other.txIdWithNotaryMetadata) return false
         if (creator != other.creator) return false
         if (receiver != other.receiver) return false
         if (controllingNotary != other.controllingNotary) return false
@@ -61,7 +61,7 @@ data class LockState(
 
     override fun hashCode(): Int {
         var result = super.hashCode()
-        result = 31 * result + txHash.hashCode()
+        result = 31 * result + txIdWithNotaryMetadata.hashCode()
         result = 31 * result + creator.hashCode()
         result = 31 * result + receiver.hashCode()
         result = 31 * result + controllingNotary.hashCode()

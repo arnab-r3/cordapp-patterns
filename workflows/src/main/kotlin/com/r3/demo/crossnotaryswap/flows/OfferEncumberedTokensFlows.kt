@@ -15,10 +15,7 @@ import com.template.flows.CollectSignaturesForCompositesHandler
 import net.corda.core.contracts.TimeWindow
 import net.corda.core.crypto.CompositeKey
 import net.corda.core.crypto.SignatureMetadata
-import net.corda.core.flows.FinalityFlow
-import net.corda.core.flows.FlowLogic
-import net.corda.core.flows.FlowSession
-import net.corda.core.flows.ReceiveFinalityFlow
+import net.corda.core.flows.*
 import net.corda.core.identity.AnonymousParty
 import net.corda.core.node.StatesToRecord
 import net.corda.core.transactions.SignedTransaction
@@ -32,7 +29,7 @@ import net.corda.core.transactions.WireTransaction
  * @param validatedDraftTransferOfOwnership object encapsulating information about the draft unsigned [WireTransaction],
  * the notary [SignatureMetadata]
  */
-class OfferEncumberedTokens(
+class OfferEncumberedTokensFlow(
     private val exchangeRequestDTO: ExchangeRequestDTO,
     private val validatedDraftTransferOfOwnership: ValidatedDraftTransferOfOwnership,
     private val buyerSession: FlowSession
@@ -143,12 +140,31 @@ class OfferEncumberedTokensFlowHandler(private val counterPartySession: FlowSess
         // execute the rest of the unlocking process for the recipient of the lock state, i.e. buyer
         // TODO check identity later
         //if (ourIdentity == lockState.receiver) {
-        val exchangeRequestDTO = getExchangeRequestByTxId(lockState.txHash.toString())
+        val exchangeRequestDTO = getExchangeRequestByTxId(lockState.txIdWithNotaryMetadata.txId.toString())
 
         // verify if the transaction is ok as per the shared exchange request
         verifySharedTransactionAgainstExchangeRequest(exchangeRequestDTO.sellerAssetRequest, signedEncumberedTx.tx)
 
         return signedEncumberedTx
     }
+}
 
+@InitiatingFlow
+class OfferEncumberedTokens(
+    private val requestId: String,
+    private val validatedDraftTransferOfOwnership: ValidatedDraftTransferOfOwnership
+) : FlowLogic<SignedTransaction>() {
+
+    @Suspendable
+    override fun call(): SignedTransaction {
+        val exchangeRequestDTO = getRequestById(requestId)
+        val buyerSession = initiateFlow(exchangeRequestDTO.buyer)
+        return subFlow(OfferEncumberedTokensFlow(exchangeRequestDTO, validatedDraftTransferOfOwnership, buyerSession))
+    }
+}
+
+@InitiatedBy(OfferEncumberedTokens::class)
+class OfferEncumberedTokensHandler(private val counterPartySession: FlowSession) : FlowLogic<SignedTransaction>() {
+    @Suspendable
+    override fun call(): SignedTransaction = subFlow(OfferEncumberedTokensFlowHandler(counterPartySession))
 }

@@ -18,15 +18,13 @@ import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
 import com.r3.demo.crossnotaryswap.flows.dto.FungibleAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.NonFungibleAssetRequest
 import com.r3.demo.crossnotaryswap.states.LockState
-import com.r3.demo.generic.flowFail
+import com.r3.demo.generic.requireInFlow
 import net.corda.core.contracts.Amount
-import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.crypto.CompositeKey
 import net.corda.core.flows.FlowLogic
 import net.corda.core.identity.AbstractParty
 import net.corda.core.internal.requiredContractClassName
-import net.corda.core.internal.uncheckedCast
 import net.corda.core.node.ServiceHub
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.transactions.WireTransaction
@@ -35,7 +33,7 @@ import java.security.PublicKey
 
 
 /**
- * For [NonFungibleToken], adds token move to the transaction, the [tokenIdentifier] and [tokenClass] identify
+ * For [NonFungibleToken], adds token move to the transaction, the [tokenIdentifier] identify
  * the token to be holder.
  */
 fun TransactionBuilder.addMoveToken(
@@ -170,34 +168,42 @@ fun TransactionBuilder.addMoveTokens(
  * Verify the shared unsigned [WireTransaction] against the offer details from the buyer
  * present in the [ExchangeRequestDTO]
  * @param unsignedWireTx shared by the buyer
- * @param DBAssetRequest to be verified against present in the [ExchangeRequestDTO]
+ * @param abstractAssetRequest to be verified against present in the [ExchangeRequestDTO]
  */
 @Suspendable
 fun FlowLogic<*>.verifySharedTransactionAgainstExchangeRequest(
     abstractAssetRequest: AbstractAssetRequest,
     unsignedWireTx: WireTransaction
 ) {
-    val sentAsset = unsignedWireTx.outputStates
     if (abstractAssetRequest is FungibleAssetRequest) {
-        val sentAmount = sentAsset
-            .map { uncheckedCast<ContractState, FungibleToken>(it) }
+        val sentTokens = unsignedWireTx.outputsOfType<FungibleToken>()
+        val sentAmount = sentTokens
             .filter {
                 it.holder == ourIdentity
             }.fold(BigDecimal.ZERO) { acc, fungibleToken ->
                 fungibleToken.amount.toDecimal() + acc
             }
-        if (sentAmount != abstractAssetRequest.tokenAmount.toDecimal())
-            flowFail("The shared unsigned transaction does not send the agreed amount of " +
+        requireInFlow(sentAmount != abstractAssetRequest.tokenAmount.toDecimal()) {
+            "The shared unsigned transaction does not send the agreed amount of " +
                     "shared tokens to $ourIdentity as agreed in Exchange Request; " +
-                    "Shared in unsigned tx: $sentAmount, Agreed: ${abstractAssetRequest.tokenAmount}")
+                    "Shared in unsigned tx: $sentAmount, Agreed: ${abstractAssetRequest.tokenAmount}"
+        }
     } else if (abstractAssetRequest is NonFungibleAssetRequest) {
-        val sentNFTAsset = sentAsset
-            .map { uncheckedCast<ContractState, NonFungibleToken>(it) }
-            .filter { it.holder == ourIdentity }
-            .filter { it.token.tokenIdentifier == abstractAssetRequest.tokenIdentifier.toString() }
-        if (sentNFTAsset.isEmpty())
-            flowFail("The shared unsigned transaction does not transfer " +
-                    "the token with id: ${abstractAssetRequest.tokenIdentifier} to $ourIdentity" +
-                    "as agreed in the Exchange Request")
+
+        val nonFungibleTokens = unsignedWireTx.outputsOfType<NonFungibleToken>()
+
+        requireInFlow(nonFungibleTokens.isNotEmpty()) {
+            "Shared unsigned tx does not contain any NonFungibleToken at par with Exchange Request"
+        }
+
+        requireInFlow(nonFungibleTokens.single().linearId.toString() == abstractAssetRequest.tokenIdentifier) {
+            "Shared unsigned tx transfers a different NonFungibleToken; " +
+                    "expected: ${abstractAssetRequest.tokenIdentifier} " +
+                    "found: ${nonFungibleTokens.single().linearId}"
+        }
+        requireInFlow(nonFungibleTokens.single().holder == ourIdentity) {
+            "Shared unsigned tx does not transfer the " +
+                    "NonFungibleToken ${abstractAssetRequest.tokenIdentifier} to us: $ourIdentity"
+        }
     }
 }

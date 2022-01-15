@@ -26,6 +26,12 @@ fun getDefaultNotary(serviceHub: ServiceHub) = serviceHub.networkMapCache.notary
 fun argFail(message: String): Nothing = throw IllegalArgumentException(message)
 fun flowFail(message: String): Nothing = throw FlowException(message)
 fun authFail(message: String): Nothing = throw MembershipNotFoundException(message)
+inline fun requireInFlow(value: Boolean, lazyMessage: () -> Any) {
+    if (!value) {
+        val message = lazyMessage()
+        flowFail(message.toString())
+    }
+}
 
 fun <T : LinearState> linearPointer(id: String, clazz: Class<T>) = LinearPointer(UniqueIdentifier.fromString(id), clazz)
 

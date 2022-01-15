@@ -4,10 +4,15 @@ import com.r3.corda.lib.tokens.contracts.types.TokenType
 import com.r3.demo.crossnotaryswap.flows.CurrencyFlows
 import com.r3.demo.crossnotaryswap.flows.dto.ExchangeRequestDTO
 import com.r3.demo.crossnotaryswap.flows.utils.getRequestEntityById
+import com.r3.demo.generic.flowFail
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.LinearState
 import net.corda.core.contracts.StateAndRef
+import net.corda.core.crypto.Crypto
+import net.corda.core.crypto.SignatureMetadata
+import net.corda.core.identity.Party
+import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.Vault
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
@@ -101,6 +106,14 @@ inline fun <reified T : ContractState> assertNotHasStateAndRef(
 }
 
 fun StateAndRef<LinearState>.getLinearId() = state.data.linearId.toString()
+
 fun getExchangeRequestDto(requestId: String, startedMockNode: StartedMockNode) =
     ExchangeRequestDTO.fromExchangeRequestEntity(
         getRequestEntityById(requestId, startedMockNode.services))
+
+fun getSignatureMetadata(party: Party, serviceHub: ServiceHub) : SignatureMetadata{
+    val nodeInfo = serviceHub.networkMapCache.getNodeByLegalIdentity(party)
+        ?: flowFail("Unable to fetch notary node details from network map $party")
+    return SignatureMetadata(nodeInfo.platformVersion,
+        Crypto.findSignatureScheme(party.owningKey).schemeNumberID)
+}

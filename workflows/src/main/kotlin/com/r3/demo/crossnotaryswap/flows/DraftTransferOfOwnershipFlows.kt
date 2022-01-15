@@ -236,22 +236,27 @@ class DraftTransferOfOwnershipFlowHandler(private val counterPartySession: FlowS
 }
 
 @InitiatingFlow
-class DraftTransferOfOwnership(private val requestId: String) : FlowLogic<WireTransaction>() {
+class DraftTransferOfOwnership(private val requestId: String) :
+    FlowLogic<Pair<WireTransaction, ValidatedDraftTransferOfOwnership>>() {
 
     @Suspendable
-    override fun call(): WireTransaction {
+    override fun call(): Pair<WireTransaction, ValidatedDraftTransferOfOwnership> {
         val exchangeRequestDTO = getRequestById(requestId)
         val sellerSession = initiateFlow(exchangeRequestDTO.seller)
-        return subFlow(DraftTransferOfOwnershipFlow(requestId, sellerSession))
+        val wireTx = subFlow(DraftTransferOfOwnershipFlow(requestId, sellerSession))
+        val validatedDraftTransferOfOwnership =
+            sellerSession.receive<ValidatedDraftTransferOfOwnership>().unwrap { it }
+        return wireTx to validatedDraftTransferOfOwnership
     }
 }
 
 @InitiatedBy(DraftTransferOfOwnership::class)
 class DraftTransferOfOwnershipHandler(private val counterPartySession: FlowSession) :
-    FlowLogic<Pair<String, ValidatedDraftTransferOfOwnership>>() {
-
+    FlowLogic<Unit>() {
     @Suspendable
-    override fun call(): Pair<String, ValidatedDraftTransferOfOwnership> {
-        return subFlow(DraftTransferOfOwnershipFlowHandler(counterPartySession))
+    override fun call() {
+        val (_, validatedDraftTransferOfOwnership) =
+            subFlow(DraftTransferOfOwnershipFlowHandler(counterPartySession))
+        counterPartySession.send(validatedDraftTransferOfOwnership)
     }
 }

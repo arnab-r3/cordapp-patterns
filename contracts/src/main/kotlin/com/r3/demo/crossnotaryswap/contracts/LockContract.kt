@@ -69,10 +69,10 @@ class LockContract : Contract {
             is Release -> {
                 val signature = (ourCommand.value as Release).signature
                 val ourState = tx.inRefsOfType(LockState::class.java).single().state.data
-                require(signature.isValid(ourState.txHash.txId)) {
+                require(signature.isValid(ourState.txIdWithNotaryMetadata.txId)) {
                     "Signature provided is not valid for encumbrance transaction"
                 }
-                require(signature.signatureMetadata == ourState.txHash.signatureMetadata) {
+                require(signature.signatureMetadata == ourState.txIdWithNotaryMetadata.signatureMetadata) {
                     "Signature scheme information is not consistent with lock setup"
                 }
                 require(signature.by.toStringShort() == ourState.controllingNotary.owningKey.toStringShort()) {

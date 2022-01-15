@@ -5,13 +5,11 @@ import com.r3.corda.lib.tokens.contracts.states.AbstractToken
 import com.r3.corda.lib.tokens.workflows.utilities.sessionsForParties
 import com.r3.demo.crossnotaryswap.contracts.LockContract
 import com.r3.demo.crossnotaryswap.flows.utils.addMoveTokens
+import com.r3.demo.crossnotaryswap.flows.utils.getRequestById
 import com.r3.demo.crossnotaryswap.states.LockState
 import com.r3.demo.generic.argFail
 import net.corda.core.crypto.SecureHash
-import net.corda.core.flows.FinalityFlow
-import net.corda.core.flows.FlowLogic
-import net.corda.core.flows.FlowSession
-import net.corda.core.flows.ReceiveFinalityFlow
+import net.corda.core.flows.*
 import net.corda.core.node.StatesToRecord
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
@@ -60,9 +58,26 @@ class RevertEncumberedTokensFlow(
 }
 
 class RevertEncumberedTokensFlowHandler(private val counterPartySession: FlowSession) : FlowLogic<SignedTransaction>() {
+    @Suspendable
+    override fun call(): SignedTransaction =
+        subFlow(ReceiveFinalityFlow(counterPartySession, statesToRecord = StatesToRecord.ALL_VISIBLE))
+}
+
+@InitiatingFlow
+class RevertEncumberedTokens(
+    private val requestId: String,
+    private val encumberedTxHash: SecureHash
+) : FlowLogic<SignedTransaction>() {
 
     @Suspendable
     override fun call(): SignedTransaction {
-        return subFlow(ReceiveFinalityFlow(counterPartySession, statesToRecord = StatesToRecord.ALL_VISIBLE))
+        val buyerSession = initiateFlow(getRequestById(requestId).buyer)
+        return subFlow(RevertEncumberedTokensFlow(encumberedTxHash, buyerSession))
     }
+}
+@InitiatedBy(RevertEncumberedTokens::class)
+class RevertEncumberedTokensHandler(private val counterPartySession: FlowSession): FlowLogic<SignedTransaction>(){
+    @Suspendable
+    override fun call(): SignedTransaction = subFlow(RevertEncumberedTokensFlowHandler(counterPartySession))
+
 }

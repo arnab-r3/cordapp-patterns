@@ -6,10 +6,7 @@ import com.r3.demo.crossnotaryswap.flows.utils.getNotarySigFromEncumberedTx
 import com.r3.demo.crossnotaryswap.flows.utils.getRequestById
 import com.r3.demo.crossnotaryswap.types.RequestStatus
 import com.r3.demo.generic.flowFail
-import net.corda.core.flows.FlowLogic
-import net.corda.core.flows.FlowSession
-import net.corda.core.flows.InitiatedBy
-import net.corda.core.flows.InitiatingFlow
+import net.corda.core.flows.*
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.utilities.unwrap
 import java.time.Instant
@@ -20,6 +17,8 @@ object CrossNotarySwapDriverFlows {
     data class RevertNotification(val isReverted: Boolean = false)
 
     @InitiatingFlow
+    @StartableByRPC
+    @StartableByService
     class BuyerDriverFlow(
         private val requestId: String
     ) : FlowLogic<Unit>() {
@@ -47,7 +46,7 @@ object CrossNotarySwapDriverFlows {
             if (!reverted) {
                 // send the promised buyer assets
                 val signedBuyerAssetTransferTx = subFlow(
-                    SignAndFinalizeTransferOfOwnership(unsignedWireTx, sellerSession)
+                    SignAndFinalizeTransferOfOwnershipFlow(unsignedWireTx, sellerSession)
                 )
                 // unlock the locked tokens
                 val notarySigOnBuyerTransfer =
@@ -76,7 +75,7 @@ object CrossNotarySwapDriverFlows {
             val exchangeRequestDto = getRequestById(requestId)
 
             val signedEncumberedTx =
-                subFlow(OfferEncumberedTokens(exchangeRequestDto, validatedDraftTransferOfOwnership, buyerSession))
+                subFlow(OfferEncumberedTokensFlow(exchangeRequestDto, validatedDraftTransferOfOwnership, buyerSession))
 
             // check if deadline has passed
             val deadline = getDeadlineFromLockState(signedEncumberedTx)
@@ -85,7 +84,7 @@ object CrossNotarySwapDriverFlows {
                 buyerSession.send(RevertNotification(false))
 
                 // receive the buyer assets
-                subFlow(SignAndFinaliseTxForPushHandler(buyerSession))
+                subFlow(SignAndFinalizeTransferOfOwnershipFlowHandler(buyerSession))
 
                 // receive the unlocked tokens
                 subFlow(UnlockEncumberedTokensFlowHandler(buyerSession))

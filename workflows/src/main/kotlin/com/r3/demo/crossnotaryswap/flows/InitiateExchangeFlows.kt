@@ -28,6 +28,7 @@ object InitiateExchangeFlows {
      * @param buyerAssetRequest to propose
      */
     @StartableByRPC
+    @StartableByService
     @InitiatingFlow
     class ExchangeRequesterFlow(
         private val sellerParty: AbstractParty,
