@@ -24,6 +24,8 @@ open class AppConfig : WebMvcConfigurer {
     @Value("\${partyC.rpcUrl}")
     lateinit var partyCHostAndPort: String
 
+    @Value("\${partyD.rpcUrl}")
+    lateinit var partyDHostAndPort: String
 
     @Value("\${rpc.username}")
     lateinit var rpcUserName: String
@@ -49,6 +51,12 @@ open class AppConfig : WebMvcConfigurer {
     open fun partyCProxy(): CordaRPCOps {
         val partyAClient = CordaRPCClient(NetworkHostAndPort.parse(partyCHostAndPort))
         return partyAClient.start(rpcUserName, rpcPassword).proxy
+    }
+
+    @Bean(destroyMethod = "")
+    open fun partyDProxy(): CordaRPCOps {
+        val partyDClient = CordaRPCClient(NetworkHostAndPort.parse(partyDHostAndPort))
+        return partyDClient.start(rpcUserName, rpcPassword).proxy
     }
 
 

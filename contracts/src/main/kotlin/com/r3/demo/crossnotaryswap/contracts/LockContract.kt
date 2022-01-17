@@ -4,16 +4,18 @@ import com.r3.corda.lib.tokens.contracts.states.AbstractToken
 import com.r3.demo.crossnotaryswap.states.LockState
 import net.corda.core.contracts.CommandData
 import net.corda.core.contracts.Contract
+import net.corda.core.contracts.requireThat
 import net.corda.core.crypto.TransactionSignature
 import net.corda.core.crypto.toStringShort
 import net.corda.core.transactions.LedgerTransaction
-import java.time.Instant
 
 class LockContract : Contract {
 
     companion object {
         val contractId = this::class.java.enclosingClass.canonicalName!!
     }
+
+    // TODO add more exhaustive checks in the contract
 
     override fun verify(tx: LedgerTransaction) {
 
@@ -79,23 +81,49 @@ class LockContract : Contract {
                     "Signer of encumbrance transaction does not match controlling notary in Lock setup"
                 }
             }
-            is Revert -> {
-                val now = Instant.now()
+            is RevertIntent -> {
                 val lockState = tx.inRefsOfType(LockState::class.java).single().state.data
+                val encumberedTxReceiver = lockState.receiver
+
+                requireThat {
+                    "Registering the intent to revert the encumbered " +
+                            "tokens requires a time window that starts exactly after the lock time window " +
+                            "expires" using
+                            (tx.timeWindow != null && tx.timeWindow?.fromTime != null && tx.timeWindow?.untilTime == null)
+
+                    "Revert Intent transaction should only be registered after lock state time window " using
+                            (tx.timeWindow!!.fromTime!!.isAfter(ourInputs.single().timeWindow.untilTime))
+
+                    "Revert Intent command for Lock state" +
+                            " cannot change anything apart from " +
+                            "the revertIntentRegistered" using
+                            (ourInputs.single() == ourOutputs.single()
+                                    && ourInputs.single().revertIntentRegistered == null
+                                    && ourOutputs.single().revertIntentRegistered == true)
+
+                    "Token offer can be retired by its issuer" using
+                            (encumberedTxReceiver.owningKey in ourCommand.signers)
+                }
+            }
+            is Revert -> {
+                val lockState = tx.inRefsOfType(LockState::class.java).single().state.data
+                require(lockState.revertIntentRegistered == true) {
+                    "Lock cannot be reverted unless the intent to revert has been registered"
+                }
                 val encumberedTxIssuer = lockState.creator
                 val encumberedTxReceiver = lockState.receiver
-                val encumberedTxUntilTime = lockState.timeWindow.untilTime!!
                 val allowedOutputs: Set<AbstractToken> = tx.inputsOfType(AbstractToken::class.java).map {
-                    if(it.holder.owningKey == lockState.compositeKey) it.withNewHolder(encumberedTxIssuer) else it
+                    if (it.holder.owningKey == lockState.compositeKey) it.withNewHolder(encumberedTxIssuer) else it
                 }.toSet()
                 val actualOutputs: Set<AbstractToken> = tx.outputsOfType(AbstractToken::class.java).toSet()
 
-                require(ourCommand.signers.intersect(setOf(encumberedTxIssuer.owningKey, encumberedTxReceiver.owningKey)).size == 1) {
+                require(ourCommand.signers.intersect(setOf(encumberedTxIssuer.owningKey,
+                    encumberedTxReceiver.owningKey)).size == 1) {
                     "Token offer can be retired exclusively by either its issuer or its receiver"
                 }
 
-                require(now.isAfter(encumberedTxUntilTime) or ourCommand.signers.contains(encumberedTxReceiver.owningKey)) {
-                    "Token offer can be retired by its issuer only after the offer expires"
+                require(ourCommand.signers.contains(encumberedTxReceiver.owningKey)) {
+                    "Token offer can be retired by its issuer"
                 }
 
                 require(allowedOutputs == actualOutputs) {
@@ -108,6 +136,7 @@ class LockContract : Contract {
     open class LockCommand : CommandData
     class Encumber : LockCommand()
     class Release(val signature: TransactionSignature) : LockCommand()
+    class RevertIntent() : LockCommand()
     class Revert : LockCommand()
 }
 

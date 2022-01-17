@@ -216,6 +216,16 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
         rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
         extraConfig = ['h2Settings.address' : 'localhost:20043']
     }
+    node {
+        name "O=PartyD,L=London,C=GB"
+        p2pPort 14005
+        rpcSettings {
+            address("localhost:14006")
+            adminAddress("localhost:14046")
+        }
+        rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
+        extraConfig = ['h2Settings.address' : 'localhost:20044']
+    }
 
 
 }

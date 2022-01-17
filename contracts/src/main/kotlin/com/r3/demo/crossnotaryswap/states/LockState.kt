@@ -30,7 +30,8 @@ data class LockState(
     val timeWindow: TimeWindow,
     val creator: Party,
     val receiver: Party,
-    override val participants: List<AbstractParty> = listOf(creator, receiver)
+    override val participants: List<AbstractParty> = listOf(creator, receiver),
+    val revertIntentRegistered: Boolean? = null
 ) : ContractState {
 
     constructor(
