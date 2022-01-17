@@ -55,12 +55,12 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
         val logger = contextLogger()
     }
 
-    internal lateinit var centralBankNode: StartedMockNode
-    internal lateinit var sellerNode: StartedMockNode
-    internal lateinit var artistNode: StartedMockNode
-    internal lateinit var buyerNode: StartedMockNode
-    internal lateinit var notaryANode: StartedMockNode
-    internal lateinit var notaryBNode: StartedMockNode
+    private lateinit var centralBankNode: StartedMockNode
+    private lateinit var sellerNode: StartedMockNode
+    private lateinit var artistNode: StartedMockNode
+    private lateinit var buyerNode: StartedMockNode
+    private lateinit var notaryANode: StartedMockNode
+    private lateinit var notaryBNode: StartedMockNode
 
 
     @Before
