@@ -8,6 +8,8 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.rules.Timeout
+import java.time.Instant
+import java.time.ZoneOffset
 import java.util.concurrent.TimeUnit
 
 abstract class MockNetworkTest(
@@ -45,7 +47,7 @@ abstract class MockNetworkTest(
                 mapOf(
                     "inr_notary" to "O=NotaryA,L=London,C=GB",
                     "kitty_notary" to "O=NotaryB,L=London,C=GB",
-                    "wiretx_timewindow" to "30"
+                    "wiretx_timewindow" to "600"     // 10 mins time window in seconds
                 )
             ),
             TestCordapp.findCordapp("com.r3.corda.lib.ci")),
@@ -97,4 +99,20 @@ abstract class MockNetworkTest(
     }
 
     protected val NOTARIES: List<StartedMockNode> get() = network.notaryNodes
+
+    protected fun moveNodesClocks(numOfDays: Long, numOfMinutes: Long = 0) {
+        val instant = Instant.now()
+        val now = instant.atOffset(ZoneOffset.systemDefault().rules.getOffset(instant))
+        this.javaClass.declaredFields.filter {
+            it.type == StartedMockNode::class.java
+        }.forEach {
+            ((it.get(this) as StartedMockNode).services.clock as TestClock).setTo(now
+                .plusDays(numOfDays)
+                .plusMinutes(numOfMinutes).toInstant()
+            )
+        }
+        network.notaryNodes.forEach {
+            (it.services.clock as TestClock).setTo(now.plusMinutes(numOfMinutes).plusDays(numOfDays).toInstant())
+        }
+    }
 }

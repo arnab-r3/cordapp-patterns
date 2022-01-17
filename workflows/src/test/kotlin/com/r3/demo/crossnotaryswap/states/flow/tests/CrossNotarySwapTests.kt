@@ -55,12 +55,12 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
         val logger = contextLogger()
     }
 
-    private lateinit var centralBankNode: StartedMockNode
-    private lateinit var sellerNode: StartedMockNode
-    private lateinit var artistNode: StartedMockNode
-    private lateinit var buyerNode: StartedMockNode
-    private lateinit var notaryANode: StartedMockNode
-    private lateinit var notaryBNode: StartedMockNode
+    internal lateinit var centralBankNode: StartedMockNode
+    internal lateinit var sellerNode: StartedMockNode
+    internal lateinit var artistNode: StartedMockNode
+    internal lateinit var buyerNode: StartedMockNode
+    internal lateinit var notaryANode: StartedMockNode
+    internal lateinit var notaryBNode: StartedMockNode
 
 
     @Before
@@ -295,16 +295,14 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
                 UnlockEncumberedTokens(requestId, encumberedTx.id, notarySignatureOnBuyerTx!!)
             ).getOrThrow()
         testFungibleTokens(unlockedTx, buyerNode.legalIdentity().owningKey)
-        assertThrows<NotaryException>("Token offer " +
-                "can be retired by its issuer only after the offer expires")
+        assertThrows<NotaryException>
             {sellerNode.startFlow(RevertEncumberedTokens(requestId, encumberedTx.id)).getOrThrow()}
     }
 
     @Test
     fun `test time window expiry for buyer`() {
         `test offer encumbered tokens`()
-        network.waitQuiescent()
-        Thread.sleep(40000)
+        moveNodesClocks(0, 20L)
         network.waitQuiescent()
         assertThrows<NotaryException> {
             buyerNode.startFlow(

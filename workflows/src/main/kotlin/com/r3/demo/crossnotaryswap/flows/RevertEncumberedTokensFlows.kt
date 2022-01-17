@@ -8,6 +8,7 @@ import com.r3.demo.crossnotaryswap.flows.utils.addMoveTokens
 import com.r3.demo.crossnotaryswap.flows.utils.getRequestById
 import com.r3.demo.crossnotaryswap.states.LockState
 import com.r3.demo.generic.argFail
+import net.corda.core.contracts.TimeWindow
 import net.corda.core.crypto.SecureHash
 import net.corda.core.flows.*
 import net.corda.core.node.StatesToRecord
@@ -37,11 +38,13 @@ class RevertEncumberedTokensFlow(
 
         val outputStates = tokenStates.map { it.state.data.withNewHolder(encumberedTxIssuer) }
 
+        val timeWindowForRevert = TimeWindow
+            .fromOnly(lockState.state.data.timeWindow.untilTime!!.plusSeconds(1))
         val txBuilder = TransactionBuilder(notary = encumberedTx.notary)
             .addMoveTokens(inputs = tokenStates, outputs = outputStates, additionalKeys = emptyList())
             .addInputState(lockState)
             .addCommand(LockContract.Revert(), ourIdentity.owningKey)
-
+            .setTimeWindow(timeWindowForRevert)
         txBuilder.verify(serviceHub)
 
         val selfSignedTx = serviceHub.signInitialTransaction(txBuilder)

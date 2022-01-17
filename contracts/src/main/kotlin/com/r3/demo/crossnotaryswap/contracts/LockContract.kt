@@ -81,35 +81,8 @@ class LockContract : Contract {
                     "Signer of encumbrance transaction does not match controlling notary in Lock setup"
                 }
             }
-            is RevertIntent -> {
-                val lockState = tx.inRefsOfType(LockState::class.java).single().state.data
-                val encumberedTxReceiver = lockState.receiver
-
-                requireThat {
-                    "Registering the intent to revert the encumbered " +
-                            "tokens requires a time window that starts exactly after the lock time window " +
-                            "expires" using
-                            (tx.timeWindow != null && tx.timeWindow?.fromTime != null && tx.timeWindow?.untilTime == null)
-
-                    "Revert Intent transaction should only be registered after lock state time window " using
-                            (tx.timeWindow!!.fromTime!!.isAfter(ourInputs.single().timeWindow.untilTime))
-
-                    "Revert Intent command for Lock state" +
-                            " cannot change anything apart from " +
-                            "the revertIntentRegistered" using
-                            (ourInputs.single() == ourOutputs.single()
-                                    && ourInputs.single().revertIntentRegistered == null
-                                    && ourOutputs.single().revertIntentRegistered == true)
-
-                    "Token offer can be retired by its issuer" using
-                            (encumberedTxReceiver.owningKey in ourCommand.signers)
-                }
-            }
             is Revert -> {
                 val lockState = tx.inRefsOfType(LockState::class.java).single().state.data
-                require(lockState.revertIntentRegistered == true) {
-                    "Lock cannot be reverted unless the intent to revert has been registered"
-                }
                 val encumberedTxIssuer = lockState.creator
                 val encumberedTxReceiver = lockState.receiver
                 val allowedOutputs: Set<AbstractToken> = tx.inputsOfType(AbstractToken::class.java).map {
@@ -117,17 +90,16 @@ class LockContract : Contract {
                 }.toSet()
                 val actualOutputs: Set<AbstractToken> = tx.outputsOfType(AbstractToken::class.java).toSet()
 
-                require(ourCommand.signers.intersect(setOf(encumberedTxIssuer.owningKey,
-                    encumberedTxReceiver.owningKey)).size == 1) {
-                    "Token offer can be retired exclusively by either its issuer or its receiver"
-                }
+                requireThat {
+                    "Token offer can be retired exclusively by either its issuer or its receiver" using
+                            (ourCommand.signers.intersect(setOf(encumberedTxIssuer.owningKey,
+                                encumberedTxReceiver.owningKey)).size == 1)
+                    "Token offer can be retired by its issuer" using ourCommand.signers.contains(encumberedTxIssuer.owningKey)
+                    "Token offer can only be reverted in favor of the offer issuer" using (allowedOutputs == actualOutputs)
+                    "Token Revert requires an open ended time window with from time not null" using
+                            (tx.timeWindow != null && tx.timeWindow?.fromTime != null)
+                    tx.timeWindow?.fromTime?.isAfter(lockState.timeWindow.untilTime)
 
-                require(ourCommand.signers.contains(encumberedTxReceiver.owningKey)) {
-                    "Token offer can be retired by its issuer"
-                }
-
-                require(allowedOutputs == actualOutputs) {
-                    "Token offer can only be reverted in favor of the offer issuer"
                 }
             }
         }
@@ -136,7 +108,6 @@ class LockContract : Contract {
     open class LockCommand : CommandData
     class Encumber : LockCommand()
     class Release(val signature: TransactionSignature) : LockCommand()
-    class RevertIntent() : LockCommand()
     class Revert : LockCommand()
 }
 
