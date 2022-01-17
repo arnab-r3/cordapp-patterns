@@ -1,6 +1,6 @@
 package com.r3.demo.crossnotaryswap.contracts
 
-import com.r3.corda.lib.tokens.contracts.states.FungibleToken
+import com.r3.corda.lib.tokens.contracts.states.AbstractToken
 import com.r3.demo.crossnotaryswap.states.LockState
 import net.corda.core.contracts.CommandData
 import net.corda.core.contracts.Contract
@@ -85,10 +85,10 @@ class LockContract : Contract {
                 val encumberedTxIssuer = lockState.creator
                 val encumberedTxReceiver = lockState.receiver
                 val encumberedTxUntilTime = lockState.timeWindow.untilTime!!
-                val allowedOutputs: Set<FungibleToken> = tx.inputsOfType(FungibleToken::class.java).map {
+                val allowedOutputs: Set<AbstractToken> = tx.inputsOfType(AbstractToken::class.java).map {
                     if(it.holder.owningKey == lockState.compositeKey) it.withNewHolder(encumberedTxIssuer) else it
                 }.toSet()
-                val actualOutputs: Set<FungibleToken> = tx.outputsOfType(FungibleToken::class.java).toSet()
+                val actualOutputs: Set<AbstractToken> = tx.outputsOfType(AbstractToken::class.java).toSet()
 
                 require(ourCommand.signers.intersect(setOf(encumberedTxIssuer.owningKey, encumberedTxReceiver.owningKey)).size == 1) {
                     "Token offer can be retired exclusively by either its issuer or its receiver"

@@ -44,7 +44,8 @@ abstract class MockNetworkTest(
             TestCordapp.findCordapp("com.r3.demo.crossnotaryswap.flows").withConfig(
                 mapOf(
                     "inr_notary" to "O=NotaryA,L=London,C=GB",
-                    "kitty_notary" to "O=NotaryB,L=London,C=GB"
+                    "kitty_notary" to "O=NotaryB,L=London,C=GB",
+                    "wiretx_timewindow" to "30"
                 )
             ),
             TestCordapp.findCordapp("com.r3.corda.lib.ci")),

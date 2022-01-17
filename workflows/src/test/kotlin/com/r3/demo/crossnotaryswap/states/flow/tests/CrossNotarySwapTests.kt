@@ -16,9 +16,11 @@ import com.r3.demo.crossnotaryswap.states.KittyToken
 import com.r3.demo.crossnotaryswap.states.LockState
 import com.r3.demo.crossnotaryswap.states.ValidatedDraftTransferOfOwnership
 import com.r3.demo.crossnotaryswap.types.RequestStatus
+import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.crypto.CompositeKey
 import net.corda.core.crypto.SignableData
 import net.corda.core.crypto.toStringShort
+import net.corda.core.flows.NotaryException
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.WireTransaction
@@ -28,6 +30,7 @@ import net.corda.testing.node.StartedMockNode
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
 import java.security.PublicKey
 import java.time.Instant
@@ -52,13 +55,12 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
         val logger = contextLogger()
     }
 
-    private lateinit var centralBankNode: StartedMockNode
-    private lateinit var sellerNode: StartedMockNode
-    private lateinit var artistNode: StartedMockNode
-    private lateinit var buyerNode: StartedMockNode
-
-    private lateinit var notaryANode: StartedMockNode
-    private lateinit var notaryBNode: StartedMockNode
+    internal lateinit var centralBankNode: StartedMockNode
+    internal lateinit var sellerNode: StartedMockNode
+    internal lateinit var artistNode: StartedMockNode
+    internal lateinit var buyerNode: StartedMockNode
+    internal lateinit var notaryANode: StartedMockNode
+    internal lateinit var notaryBNode: StartedMockNode
 
 
     @Before
@@ -212,7 +214,7 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
         val exchangeRequestDTO = getExchangeRequestDto(requestId, sellerNode)
         val requestedAmount = (exchangeRequestDTO.sellerAssetRequest as FungibleAssetRequest).tokenAmount.toDecimal()
         assertThat(totalAmountTransferred, equalTo(requestedAmount))
-        assertTransactionUsesNotary(encumberedTx,network,notaryANode)
+        assertTransactionUsesNotary(encumberedTx, network, notaryANode)
     }
 
 
@@ -262,10 +264,15 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
     @Test
     fun `test sign and finalize buyer transaction`() {
         `test offer encumbered tokens`()
+        // check if the buyer can unlock the tokens without providing the correct signature of the transfer of his assets
+        val invalidSignature = encumberedTx.sigs.find { it.by == notaryANode.legalIdentity().owningKey }!!
+        assertThrows<TransactionVerificationException.ContractRejection> {
+            buyerNode.startFlow(UnlockEncumberedTokens(requestId, encumberedTx.id, invalidSignature)).getOrThrow()
+        }
+
         finalizedBuyerTx = buyerNode.startFlow(
             SignAndFinalizeTransferOfOwnership(requestId, unsignedWireTx)
         ).getOrThrow()
-
         assertThat(finalizedBuyerTx.tx, equalTo(unsignedWireTx))
         val notarySignature = finalizedBuyerTx.sigs
             .find { it.by == notaryBNode.legalIdentity().owningKey }
@@ -274,7 +281,7 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
         assertThat(notarySignature.signatureMetadata, equalTo(lockState.txIdWithNotaryMetadata.signatureMetadata))
         val transferredNonFungibleTokens = finalizedBuyerTx.coreTransaction.outputsOfType<NonFungibleToken>()
         assertThat(transferredNonFungibleTokens, hasSize(equalTo(1)))
-        assertTransactionUsesNotary(finalizedBuyerTx,network,notaryBNode)
+        assertTransactionUsesNotary(finalizedBuyerTx, network, notaryBNode)
 
     }
 
@@ -288,5 +295,25 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
                 UnlockEncumberedTokens(requestId, encumberedTx.id, notarySignatureOnBuyerTx!!)
             ).getOrThrow()
         testFungibleTokens(unlockedTx, buyerNode.legalIdentity().owningKey)
+        assertThrows<NotaryException>("Token offer " +
+                "can be retired by its issuer only after the offer expires")
+            {sellerNode.startFlow(RevertEncumberedTokens(requestId, encumberedTx.id)).getOrThrow()}
+    }
+
+    @Test
+    fun `test time window expiry for buyer`() {
+        `test offer encumbered tokens`()
+        network.waitQuiescent()
+        Thread.sleep(40000)
+        network.waitQuiescent()
+        assertThrows<NotaryException> {
+            buyerNode.startFlow(
+                SignAndFinalizeTransferOfOwnership(requestId, unsignedWireTx)
+            ).getOrThrow()
+        }
+        val revertedTokensTxn = sellerNode.startFlow(
+            RevertEncumberedTokens(requestId, encumberedTx.id)
+        ).getOrThrow()
+        testFungibleTokens(revertedTokensTxn, sellerNode.legalIdentity().owningKey)
     }
 }
