@@ -2,7 +2,7 @@
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.5.xsd">
-    <changeSet author="R3.Corda" id="create_secret_definition_table_id">
+    <changeSet author="R3.Corda" id="create_exhange_request_table_id">
         <createTable tableName="exchange_request">
 
             <column name="request_id" type="VARCHAR(36)">
@@ -17,7 +17,7 @@
                 <constraints nullable="false"/>
             </column>
 
-            <column name="buyer_asset_type" type="NVARCHAR(255)">
+            <column name="buyer_asset_request_type" type="NVARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
 
@@ -25,12 +25,12 @@
                 <constraints nullable="true"/>
             </column>
 
-            <column name="buyer_asset_class" type="NVARCHAR(255)">
+            <column name="buyer_asset_id" type="NVARCHAR(255)">
                 <constraints nullable="true"/>
             </column>
 
 
-            <column name="seller_asset_type" type="NVARCHAR(255)">
+            <column name="seller_asset_request_type" type="NVARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
 
@@ -38,7 +38,7 @@
                 <constraints nullable="true"/>
             </column>
 
-            <column name="seller_asset_class" type="NVARCHAR(255)">
+            <column name="seller_asset_id" type="NVARCHAR(255)">
                 <constraints nullable="true"/>
             </column>
 

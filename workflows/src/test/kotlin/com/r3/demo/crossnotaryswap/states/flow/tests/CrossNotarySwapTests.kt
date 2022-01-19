@@ -85,7 +85,7 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
     fun `initiate cross notary swap`() {
 
 
-        centralBankNode.issueFungibleTokens(100, "INR", sellerNode.legalIdentity(), emptyList())
+        centralBankNode.issueFungibleTokens(BigDecimal(100.20), "INR", sellerNode.legalIdentity(), emptyList())
 
         val tokenDefinition = KittyTokenDefinition(
             kittyName = "Black Kitty",
@@ -99,7 +99,6 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
         val issueTxn = artistNode
             .issueNonFungibleToken(
                 tokenDefinitionId,
-                KittyToken::class.java,
                 buyerNode.legalIdentity()
             )
             .getOrThrow()

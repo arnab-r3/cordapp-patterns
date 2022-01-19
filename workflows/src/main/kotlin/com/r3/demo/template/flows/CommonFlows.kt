@@ -1,4 +1,4 @@
-package com.template.flows
+package com.r3.demo.template.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.demo.generic.argFail

@@ -10,8 +10,8 @@ import com.r3.demo.crossnotaryswap.states.LockState
 import com.r3.demo.crossnotaryswap.states.ValidatedDraftTransferOfOwnership
 import com.r3.demo.generic.flowFail
 import com.r3.demo.generic.getPreferredNotaryForToken
-import com.template.flows.CollectSignaturesForComposites
-import com.template.flows.CollectSignaturesForCompositesHandler
+import com.r3.demo.template.flows.CollectSignaturesForComposites
+import com.r3.demo.template.flows.CollectSignaturesForCompositesHandler
 import net.corda.core.contracts.TimeWindow
 import net.corda.core.crypto.CompositeKey
 import net.corda.core.crypto.SignatureMetadata

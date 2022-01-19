@@ -17,6 +17,7 @@ object ExchangeRequestSchemaV1 : MappedSchema(
 
 @Entity
 @CordaSerializable
+@Table(name = "exchange_request")
 class ExchangeRequest {
 
     @Id

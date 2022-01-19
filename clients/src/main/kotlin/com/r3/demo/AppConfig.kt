@@ -1,4 +1,4 @@
-package com.template.webserver
+package com.r3.demo
 
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import net.corda.client.jackson.JacksonSupport

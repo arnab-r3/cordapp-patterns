@@ -118,7 +118,6 @@ class NFTTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
         val issueTxn = partyANode.startFlow(
             NFTFlows.IssueNFTFlow(
                 tokenIdentifier = tokenDefinitionId,
-                tokenClass = KittyToken::class.java,
                 receivingParty = partyBNode.legalIdentity()
             )
         ).getOrThrow()

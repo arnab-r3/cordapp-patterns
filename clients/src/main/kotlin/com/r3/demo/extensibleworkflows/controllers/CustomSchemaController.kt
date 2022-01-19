@@ -1,9 +1,9 @@
-package com.template.webserver
+package com.r3.demo.extensibleworkflows.controllers
 
 import com.r3.demo.datadistribution.flows.MembershipFlows
 import com.r3.demo.extensibleworkflows.CreateGroupDataAssociationAndLinkSchema
 import com.r3.demo.extensibleworkflows.ManageGroupAwareSchemaBackedKVData
-import com.template.forms.Forms
+import com.r3.demo.template.forms.Forms
 import net.corda.bn.states.MembershipState
 import net.corda.core.CordaException
 import net.corda.core.CordaRuntimeException
@@ -24,7 +24,7 @@ import javax.servlet.http.HttpServletRequest
  * Define your API endpoints here.
  */
 @RestController
-@RequestMapping("/api") // The paths for HTTP requests are relative to this base path.
+@RequestMapping("/api/schema") // The paths for HTTP requests are relative to this base path.
 class GroupManagementController {
 
     companion object {

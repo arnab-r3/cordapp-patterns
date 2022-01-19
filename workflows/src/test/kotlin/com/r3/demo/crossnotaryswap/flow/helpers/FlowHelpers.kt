@@ -19,6 +19,7 @@ import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
 import net.corda.testing.node.StartedMockNode
+import java.math.BigDecimal
 
 /** Create an evolvable token. */
 fun <T : EvolvableTokenType> StartedMockNode.createEvolvableToken(
@@ -129,18 +130,16 @@ fun StartedMockNode.defineNonFungibleToken(tokenDefinition: TokenDefinition): Co
 
 fun StartedMockNode.issueNonFungibleToken(
     tokenIdentifier: String,
-    tokenClass: Class<out EvolvableTokenType>,
     receivingParty: AbstractParty
 ): CordaFuture<SignedTransaction> = transaction {
     startFlow(NFTFlows.IssueNFTFlow(
         tokenIdentifier,
-        tokenClass,
         receivingParty
     ))
 }
 
 fun StartedMockNode.issueFungibleTokens(
-    amount: Long,
+    amount: BigDecimal,
     currency: String,
     receiver: Party? = null,
     observers: List<Party> = emptyList()

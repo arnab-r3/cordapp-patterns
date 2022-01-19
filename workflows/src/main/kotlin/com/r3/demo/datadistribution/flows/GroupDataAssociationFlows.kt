@@ -9,7 +9,7 @@ import com.r3.demo.generic.argFail
 import com.r3.demo.generic.flowFail
 import com.r3.demo.generic.getDefaultNotary
 import com.r3.demo.generic.linearPointer
-import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
+import com.r3.demo.template.flows.CollectSignaturesAndFinalizeTransactionFlow
 import net.corda.bn.flows.BNService
 import net.corda.bn.flows.MembershipManagementFlow
 import net.corda.bn.states.GroupState

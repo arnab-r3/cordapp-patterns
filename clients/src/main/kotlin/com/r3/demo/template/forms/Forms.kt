@@ -1,4 +1,4 @@
-package com.template.forms
+package com.r3.demo.template.forms
 
 import com.r3.demo.custom.Schema
 import net.corda.core.identity.Party

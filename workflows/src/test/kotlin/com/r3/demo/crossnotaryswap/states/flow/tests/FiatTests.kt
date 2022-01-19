@@ -7,6 +7,7 @@ import net.corda.core.utilities.getOrThrow
 import net.corda.testing.node.StartedMockNode
 import org.junit.Before
 import org.junit.Test
+import java.math.BigDecimal
 import kotlin.test.assertEquals
 
 class FiatTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
@@ -34,7 +35,7 @@ class FiatTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
 
         val transaction = partyANode.startFlow(
             CurrencyFlows.IssueFiatCurrencyFlow(
-                amount = 100,
+                amount = BigDecimal(100.20),
                 currency = "INR",
                 receiver = partyANode.legalIdentity())
         ).getOrThrow()
@@ -50,7 +51,7 @@ class FiatTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
 
         val transaction = partyANode.startFlow(
             CurrencyFlows.IssueFiatCurrencyFlow(
-                amount = 100,
+                amount = BigDecimal(100.20),
                 currency = "INR",
                 receiver = partyCNode.legalIdentity(),
                 observers = listOf(partyBNode.legalIdentity()))
@@ -69,7 +70,7 @@ class FiatTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
 
         val transaction = partyANode.startFlow(
             CurrencyFlows.IssueFiatCurrencyFlow(
-                amount = 100,
+                amount = BigDecimal(100.20),
                 currency = "INR",
                 receiver = partyANode.legalIdentity())
         ).getOrThrow()
@@ -82,7 +83,7 @@ class FiatTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
             CurrencyFlows.GetBalanceFlow("INR")
         ).getOrThrow()
 
-        assertEquals(100.INR, amount)
+        assertEquals(BigDecimal(100.20).INR, amount)
 
     }
 
@@ -91,7 +92,7 @@ class FiatTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
 
         val issueTxn = partyANode.startFlow(
             CurrencyFlows.IssueFiatCurrencyFlow(
-                amount = 100,
+                amount = BigDecimal(100.20),
                 currency = "INR",
                 receiver = partyBNode.legalIdentity())
         ).getOrThrow()
@@ -116,8 +117,8 @@ class FiatTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
         assertNotHasTransaction(moveTxn, network, partyDNode)
 
 
-        assertHasBalance(network, 12.INR, partyCNode)
-        assertHasBalance(network, 88.INR, partyBNode)
+        assertHasBalance(network, BigDecimal(12).INR, partyCNode)
+        assertHasBalance(network, BigDecimal(88.20).INR, partyBNode)
 
     }
 

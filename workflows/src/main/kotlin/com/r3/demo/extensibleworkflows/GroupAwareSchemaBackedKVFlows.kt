@@ -9,7 +9,7 @@ import com.r3.demo.datadistribution.flows.GroupDataManagementFlow
 import com.r3.demo.datadistribution.flows.MembershipBroadcastFlows
 import com.r3.demo.generic.flowFail
 import com.r3.demo.generic.getDefaultNotary
-import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
+import com.r3.demo.template.flows.CollectSignaturesAndFinalizeTransactionFlow
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.StaticPointer
 import net.corda.core.flows.InitiatingFlow

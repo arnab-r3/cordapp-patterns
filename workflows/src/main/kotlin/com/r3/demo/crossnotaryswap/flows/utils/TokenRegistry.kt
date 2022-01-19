@@ -10,6 +10,7 @@ import net.corda.core.contracts.Amount
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.vault.QueryCriteria
+import java.math.BigDecimal
 
 class TokenRegistry {
 
@@ -57,3 +58,4 @@ class TokenRegistry {
 val INRTokenType = FiatCurrency.getInstance("INR")
 val Int.INR: Amount<TokenType> get() = amount(this, INRTokenType)
 val Long.INR: Amount<TokenType> get() = amount(this, INRTokenType)
+val BigDecimal.INR: Amount<TokenType> get() = amount(this, INRTokenType)

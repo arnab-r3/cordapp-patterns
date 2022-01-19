@@ -22,6 +22,7 @@ import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
+import java.math.BigDecimal
 
 object CurrencyFlows {
 
@@ -29,7 +30,7 @@ object CurrencyFlows {
     @StartableByRPC
     @StartableByService
     class IssueFiatCurrencyFlow(
-        private val amount: Long,
+        private val amount: BigDecimal,
         private val currency: String,
         private val receiver: Party? = null,
         private val observers: List<Party> = emptyList()

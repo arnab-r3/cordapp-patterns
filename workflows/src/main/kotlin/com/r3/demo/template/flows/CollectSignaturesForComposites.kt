@@ -1,4 +1,4 @@
-package com.template.flows
+package com.r3.demo.template.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.crypto.CompositeKey
@@ -14,7 +14,7 @@ import net.corda.core.utilities.unwrap
  * This is an initiating flow, and is used where some required signatures are from [CompositeKey]s.
  * The standard Corda CollectSignaturesFlow will not work in this case.
  * @param stx - the [SignedTransaction] to sign
- * @param signers - the list of signing [Party]s
+ * @param signerSessions - the list of session for signing [Party]s
  */
 internal class CollectSignaturesForComposites(
     private val stx: SignedTransaction,

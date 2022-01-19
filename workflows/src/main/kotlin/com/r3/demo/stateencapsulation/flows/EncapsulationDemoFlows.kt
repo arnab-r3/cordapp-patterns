@@ -6,7 +6,7 @@ import com.r3.demo.generic.getDefaultNotary
 import com.r3.demo.stateencapsulation.contracts.EncapsulatedState
 import com.r3.demo.stateencapsulation.contracts.EncapsulatingState
 import com.r3.demo.stateencapsulation.contracts.StateEncapsulationContract
-import com.template.flows.CollectSignaturesAndFinalizeTransactionFlow
+import com.r3.demo.template.flows.CollectSignaturesAndFinalizeTransactionFlow
 import net.corda.core.contracts.ContractState
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatingFlow

@@ -17,11 +17,13 @@ import com.r3.demo.crossnotaryswap.flows.dto.KittyTokenDefinition
 import com.r3.demo.crossnotaryswap.flows.dto.TokenDefinition
 import com.r3.demo.generic.argFail
 import com.r3.demo.generic.getPreferredNotaryForToken
+import com.r3.demo.generic.requireInFlow
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.contracts.requireThat
 import net.corda.core.flows.*
 import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
+import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.SignedTransaction
@@ -46,7 +48,7 @@ object NFTFlows {
         @Suspendable
         override fun call(): SignedTransaction {
 
-            val (tokenTypeName, tokenState) = when (tokenDefinition) {
+            val (_, tokenState) = when (tokenDefinition) {
                 is KittyTokenDefinition -> {
                     "KITTY" to tokenDefinition.toKittyToken(serviceHub)
                 }
@@ -116,27 +118,21 @@ object NFTFlows {
     @StartableByService
     class IssueNFTFlow(
         private val tokenIdentifier: String,
-        private val tokenClass: Class<out EvolvableTokenType>,
-        private val receivingParty: AbstractParty) : FlowLogic<SignedTransaction>() {
+        private val receivingParty: AbstractParty
+    ) : FlowLogic<SignedTransaction>() {
 
         @Suspendable
         override fun call(): SignedTransaction {
             val queryCriteria = QueryCriteria
                 .LinearStateQueryCriteria(
                     linearId = listOf(UniqueIdentifier.fromString(tokenIdentifier)),
-                    contractStateTypes = setOf(tokenClass)
+                    contractStateTypes = setOf(EvolvableTokenType::class.java)
                 )
-
-            val evolvableTokens = serviceHub.vaultService.queryBy(tokenClass, queryCriteria)
-
-            require(evolvableTokens.states.isNotEmpty()) {"Unable to find any evolvable tokens with identifier $tokenIdentifier"}
-
+            val evolvableTokens = serviceHub.vaultService.queryBy<EvolvableTokenType>(queryCriteria)
+            require(evolvableTokens.states.isNotEmpty()) { "Unable to find any evolvable tokens with identifier $tokenIdentifier" }
             val tokenToIssue = evolvableTokens.states.single().state.data
-
-            val tokenPointer = tokenToIssue.toPointer(tokenClass)
-
+            val tokenPointer = tokenToIssue.toPointer(tokenToIssue.javaClass)
             val issuedTokenType = tokenPointer issuedBy ourIdentity heldBy receivingParty
-
             return subFlow(
                 IssueTokensFlowWithNotarySelection(
                     token = issuedTokenType,
@@ -152,6 +148,31 @@ object NFTFlows {
     }
 
 
+    @InitiatingFlow
+    class MoveNFT(
+        private val tokenIdentifier: String,
+        private val receivingParty: AbstractParty,
+        private val observers: List<Party> = emptyList(),
+        private val queryCriteria: QueryCriteria? = null
+    ) : FlowLogic<SignedTransaction>() {
+
+        @Suspendable
+        override fun call(): SignedTransaction {
+            val linearQueryCriteria = QueryCriteria
+                .LinearStateQueryCriteria(
+                    linearId = listOf(UniqueIdentifier.fromString(tokenIdentifier)),
+                    contractStateTypes = setOf(EvolvableTokenType::class.java)
+                )
+            val evolvableTokens = serviceHub.vaultService.queryBy<EvolvableTokenType>(linearQueryCriteria)
+            requireInFlow(evolvableTokens.states.isNotEmpty()) {"Cannot find token with identifier : $tokenIdentifier"}
+            val evolvableTokenData = evolvableTokens.states.single().state.data
+            return subFlow(MoveNFTFlow(
+                PartyAndToken(receivingParty, evolvableTokenData.toPointer(evolvableTokenData.javaClass)),
+                observers,
+                queryCriteria
+            ))
+        }
+    }
 
     @InitiatingFlow
     @StartableByRPC
@@ -208,7 +229,6 @@ object NFTFlows {
         override fun call() = subFlow(MoveTokensFlowHandler(counterPartySession))
 
     }
-
 
 
 }

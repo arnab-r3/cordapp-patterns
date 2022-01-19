@@ -7,7 +7,8 @@ enum class RequestStatus {
     REQUESTED,
     APPROVED,
     ABORTED,
-    DENIED
+    DENIED,
+    FULFILLED
 }
 
 
