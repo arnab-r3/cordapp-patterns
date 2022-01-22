@@ -160,10 +160,13 @@ curl --request GET "localhost:8080/api/cns/balance/fungible/INR"
 
 ### Inline Flows
 
-|Buyer|Seller|Description|
-|-----|------|-----------|
-|DraftTransferOfOwnershipFlows|-|Offers an unsigned `WireTransaction` to the seller transferring the promised asset as per the `ExchangeRequest` with a defined time window|
-|-|OfferEncumberedTokensFlows|Creates a composite key having the Public Keys of the Seller and the Buyer and transfers the tokens to this composite key, cyclically encumbers all outputs along with a `LockState` and finalizes the transaction within the time window. The `LockState` can only be spent(unlocking the encumbered tokens) only if the Buyer can provide the signature of the Notary on the `WireTransaction`|
-|SignAndFinalizeTransferOfOwnershipFlows|-|Signs the original `WireTransaction` transferring the assets to the Seller within the time window|
-|UnlockEncumberedTokensFlows|-|Unlocks the encumbered outputs that the seller has sent and transfers them to the Buyer's key using the signature of the notary on the finalized `WireTransaction`|
-|-|RevertEncumberedTokensFlows|If the buyer does not finalize the `WireTransaction` using the `SignAndFinalizeTransferOfOwnershipFlows` then the seller can revert the encumbered tokens and transfer them back to herself, only after the time window set by the buyer has expired|
+Legend - (n) **Flow** - Initiated flow, *StartingFlowHandler* - corresponding handler at counterparty
+
+
+|Buyer|Description|Seller|Description|
+|-----|------|-----------|-----------|
+|(1) **DraftTransferOfOwnershipFlow**|Offers an unsigned `WireTransaction` to the seller transferring the promised asset as per the `ExchangeRequest` with a defined time window|*DraftTransferOfOwnershipFlowHandler*|Checks the `WireTransaction` against the `Exchange Request`, pull the necessary dependent (input and reference) transactions from the Buyer and checks if back chain satisfies contract logic.|
+|*OfferEncumberedTokensFlowHandler*|Ensures the encumbered tokens transfers the promised tokens to the composite key as per the `ExchangeRequest`|(2) **OfferEncumberedTokensFlow**|Creates a composite key having the Public Keys of the Seller and the Buyer and transfers the tokens to this composite key, cyclically encumbers all outputs along with a `LockState` and finalizes the transaction within the time window. The `LockState` can only be spent(unlocking the encumbered tokens) only if the Buyer can provide the signature of the Notary on the `WireTransaction`|
+|(3a) **SignAndFinalizeTransferOfOwnershipFlow**|Signs the original `WireTransaction` transferring the assets to the Seller within the time window|*SignAndFinalizeTransferOfOwnershipFlowHandler*|Receives the transaction|
+|(4) **UnlockEncumberedTokensFlow**|Unlocks the encumbered outputs that the seller has sent and transfers them to the Buyer's key using the signature of the notary on the finalized `WireTransaction`|*UnlockEncumberedTokensFlowHandler*|Receives the transaction|
+|*RevertEncumberedTokensFlowHandler*|(3b) **RevertEncumberedTokensFlow**|If the buyer does not finalize the `WireTransaction` using the `SignAndFinalizeTransferOfOwnershipFlow` then the seller can revert the encumbered tokens and transfer them back to herself, only after the time window set by the buyer has expired|
