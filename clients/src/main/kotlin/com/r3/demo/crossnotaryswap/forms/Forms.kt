@@ -6,6 +6,9 @@ import com.r3.demo.crossnotaryswap.flows.dto.AbstractAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.FungibleAssetRequest
 import com.r3.demo.crossnotaryswap.flows.dto.NFTTokenType
 import com.r3.demo.crossnotaryswap.flows.dto.NonFungibleAssetRequest
+import com.r3.demo.crossnotaryswap.types.AssetRequestType
+import com.r3.demo.crossnotaryswap.types.AssetRequestType.FUNGIBLE_ASSET_REQUEST
+import com.r3.demo.crossnotaryswap.types.AssetRequestType.NON_FUNGIBLE_ASSET_REQUEST
 import net.corda.core.identity.Party
 import java.math.BigDecimal
 
@@ -14,20 +17,33 @@ import java.math.BigDecimal
  */
 class CNSForms {
 
-    class AssetRequestForm(
+    open class AssetForm(
         val tokenIdentifier: String = "",
-        val amount: BigDecimal? = BigDecimal.ZERO,
-        val receiver: Party
-    ){
+        val amount: BigDecimal? = BigDecimal.ZERO
+    )
+    open class AssetRequestForm(
+        tokenIdentifier: String,
+        amount: BigDecimal?,
+        private val type: AssetRequestType
+    ): AssetForm(tokenIdentifier, amount) {
         fun toAssetRequest(): AbstractAssetRequest {
-            return when (amount) {
-                null -> NonFungibleAssetRequest(tokenIdentifier)
-                else -> FungibleAssetRequest(amount of FiatCurrency.getInstance(tokenIdentifier))
+            return when (type) {
+                NON_FUNGIBLE_ASSET_REQUEST -> NonFungibleAssetRequest(tokenIdentifier)
+                FUNGIBLE_ASSET_REQUEST -> FungibleAssetRequest(amount!! of FiatCurrency.getInstance(tokenIdentifier))
             }
         }
-
         override fun toString(): String {
-            return "tokenIdentifier='$tokenIdentifier', amount=$amount, receiver=$receiver"
+            return "AssetReqForm(tokenIdentifier='$tokenIdentifier', amount=$amount)"
+        }
+    }
+
+    class AssetWithReceiverForm(
+        tokenIdentifier: String = "",
+        amount: BigDecimal? = BigDecimal.ZERO,
+        val receiver: String
+    ) : AssetForm(tokenIdentifier, amount) {
+        override fun toString(): String {
+            return "AssetRequestFormWithReceiver(receiver='$receiver')"
         }
     }
 
@@ -41,7 +57,7 @@ class CNSForms {
         val seller: Party,
         val buyerAsset: AssetRequestForm,
         val sellerAsset: AssetRequestForm
-    ){
+    ) {
         override fun toString(): String {
             return "seller=$seller, \nbuyerAsset=$buyerAsset, \nsellerAsset=$sellerAsset"
         }

@@ -93,7 +93,7 @@ class OfferEncumberedTokensFlow(
                         serviceHub = serviceHub,
                         tokenIdentifier = exchangeRequestDTO.sellerAssetRequest.tokenIdentifier,
                         holder = compositeKeyHolderParty,
-                        additionalKeys = listOf(exchangeRequestDTO.buyer.owningKey),
+                        additionalKeys = emptyList(),
                         lockState = lockState
                     )
                 }
@@ -102,7 +102,7 @@ class OfferEncumberedTokensFlow(
                         amount = exchangeRequestDTO.sellerAssetRequest.tokenAmount,
                         holder = compositeKeyHolderParty,
                         changeHolder = ourIdentity,
-                        additionalKeys = listOf(exchangeRequestDTO.buyer.owningKey),
+                        additionalKeys = emptyList(),
                         lockState = lockState
                     )
                 }
@@ -143,7 +143,9 @@ class OfferEncumberedTokensFlowHandler(private val counterPartySession: FlowSess
         val exchangeRequestDTO = getExchangeRequestByTxId(lockState.txIdWithNotaryMetadata.txId.toString())
 
         // verify if the transaction is ok as per the shared exchange request
-        verifySharedTransactionAgainstExchangeRequest(exchangeRequestDTO.sellerAssetRequest, signedEncumberedTx.tx)
+        verifySharedTransactionAgainstExchangeRequest(exchangeRequestDTO.sellerAssetRequest,
+            signedEncumberedTx.tx,
+            lockState.compositeKey)
 
         return signedEncumberedTx
     }

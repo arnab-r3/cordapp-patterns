@@ -173,24 +173,26 @@ fun TransactionBuilder.addMoveTokens(
 @Suspendable
 fun FlowLogic<*>.verifySharedTransactionAgainstExchangeRequest(
     abstractAssetRequest: AbstractAssetRequest,
-    unsignedWireTx: WireTransaction
+    unsignedWireTx: WireTransaction,
+    owningKey: PublicKey
 ) {
     if (abstractAssetRequest is FungibleAssetRequest) {
         val sentTokens = unsignedWireTx.outputsOfType<FungibleToken>()
         val sentAmount = sentTokens
             .filter {
-                it.holder == ourIdentity
+                it.holder.owningKey == owningKey
             }.fold(BigDecimal.ZERO) { acc, fungibleToken ->
                 fungibleToken.amount.toDecimal() + acc
             }
-        requireInFlow(sentAmount != abstractAssetRequest.tokenAmount.toDecimal()) {
+        requireInFlow(sentAmount == abstractAssetRequest.tokenAmount.toDecimal()) {
             "The shared unsigned transaction does not send the agreed amount of " +
                     "shared tokens to $ourIdentity as agreed in Exchange Request; " +
                     "Shared in unsigned tx: $sentAmount, Agreed: ${abstractAssetRequest.tokenAmount}"
         }
     } else if (abstractAssetRequest is NonFungibleAssetRequest) {
 
-        val nonFungibleTokens = unsignedWireTx.outputsOfType<NonFungibleToken>()
+        val nonFungibleTokens = unsignedWireTx
+            .outputsOfType<NonFungibleToken>()
 
         requireInFlow(nonFungibleTokens.isNotEmpty()) {
             "Shared unsigned tx does not contain any NonFungibleToken at par with Exchange Request"
@@ -201,9 +203,9 @@ fun FlowLogic<*>.verifySharedTransactionAgainstExchangeRequest(
                     "expected: ${abstractAssetRequest.tokenIdentifier} " +
                     "found: ${nonFungibleTokens.single().linearId}"
         }
-        requireInFlow(nonFungibleTokens.single().holder == ourIdentity) {
+        requireInFlow(nonFungibleTokens.single().holder.owningKey == owningKey) {
             "Shared unsigned tx does not transfer the " +
-                    "NonFungibleToken ${abstractAssetRequest.tokenIdentifier} to us: $ourIdentity"
+                    "NonFungibleToken ${abstractAssetRequest.tokenIdentifier} to the shared key"
         }
     }
 }

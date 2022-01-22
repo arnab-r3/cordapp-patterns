@@ -1,7 +1,6 @@
 package com.r3.demo.crossnotaryswap.flows
 
 import co.paralleluniverse.fibers.Suspendable
-import com.r3.corda.lib.tokens.contracts.utilities.of
 import com.r3.corda.lib.tokens.workflows.flows.move.addMoveFungibleTokens
 import com.r3.corda.lib.tokens.workflows.flows.move.addMoveNonFungibleTokens
 import com.r3.corda.lib.tokens.workflows.types.PartyAndAmount
@@ -71,6 +70,7 @@ class DraftTransferOfOwnershipFlow(
 
     }
 
+    @Suspendable
     private fun addBuyerAssetToTransactionBuilder(
         transactionBuilder: TransactionBuilder,
         exchangeRequestDto: ExchangeRequestDTO
@@ -80,9 +80,7 @@ class DraftTransferOfOwnershipFlow(
             when (this) {
                 /* add the move tokens if it is a nft*/
                 is FungibleAssetRequest -> {
-                    val tokenType = tokenAmount.token
-                    val amount = tokenAmount.quantity
-                    val partyAndAmount = PartyAndAmount(seller, amount of tokenType)
+                    val partyAndAmount = PartyAndAmount(seller, tokenAmount)
                     addMoveFungibleTokens(
                         transactionBuilder = transactionBuilder,
                         serviceHub = serviceHub,
@@ -148,7 +146,7 @@ class DraftTransferOfOwnershipFlowHandler(private val counterPartySession: FlowS
         val exchangeRequestDto = getRequestById(requestId)
         // verify the shared transaction against the original exchange request
 
-        verifySharedTransactionAgainstExchangeRequest(exchangeRequestDto.buyerAssetRequest, unsignedWireTx)
+        verifySharedTransactionAgainstExchangeRequest(exchangeRequestDto.buyerAssetRequest, unsignedWireTx, ourIdentity.owningKey)
 
         return requestId to validatedDraftTransferOfOwnership
     }

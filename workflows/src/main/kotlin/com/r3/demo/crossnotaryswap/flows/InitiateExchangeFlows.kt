@@ -7,7 +7,7 @@ import com.r3.demo.crossnotaryswap.flows.utils.getRequestById
 import com.r3.demo.crossnotaryswap.flows.utils.isExchangeAssetOwned
 import com.r3.demo.crossnotaryswap.flows.utils.newExchangeRequestFromDto
 import com.r3.demo.crossnotaryswap.flows.utils.setRequestStatus
-import com.r3.demo.crossnotaryswap.types.RequestStatus
+import com.r3.demo.crossnotaryswap.types.RequestStatus.*
 import com.r3.demo.generic.flowFail
 import net.corda.core.flows.*
 import net.corda.core.identity.AbstractParty
@@ -84,7 +84,8 @@ object InitiateExchangeFlows {
     class ExchangeResponderFlow(
         private val requestId: String,
         private val approved: Boolean,
-        private val rejectionReason: String? = null) : FlowLogic<Unit>(){
+        private val rejectionReason: String? = null
+    ) : FlowLogic<Unit>() {
 
         @Suspendable
         override fun call() {
@@ -92,27 +93,26 @@ object InitiateExchangeFlows {
             val exchangeRequestDto = getRequestById(requestId)
             val counterPartySession = initiateFlow(exchangeRequestDto.buyer)
 
+            require(exchangeRequestDto.requestStatus == REQUESTED)
+            { "Cannot set the status of an exchange request whose status is not REQUESTED, " +
+                    "found status: ${exchangeRequestDto.requestStatus}" }
             // check if we have sufficient balance of the requested asset
             if (!isExchangeAssetOwned(exchangeRequestDto.sellerAssetRequest, ourIdentity)) {
                 val reason = "The specified asset does not belong to us " +
                         "or is in insufficient quantity: ${exchangeRequestDto.sellerAssetRequest}"
                 val rejectedRequest = exchangeRequestDto.deny(reason)
-
                 counterPartySession.send(rejectedRequest)
-
                 flowFail(reason)
             }
 
             // set the status appropriately on the dto and send the response
             val exchangeRequestResponseDto = if (approved) {
-                setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.APPROVED)
+                setRequestStatus(exchangeRequestDto.requestId.toString(), APPROVED)
                 exchangeRequestDto.approve()
-            }
-            else {
-                setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.DENIED, rejectionReason)
+            } else {
+                setRequestStatus(exchangeRequestDto.requestId.toString(), DENIED, rejectionReason)
                 exchangeRequestDto.deny(rejectionReason)
             }
-
             counterPartySession.send(exchangeRequestResponseDto)
         }
     }
@@ -121,7 +121,7 @@ object InitiateExchangeFlows {
      * Handler on the buyer side that receives the decision from the seller
      */
     @InitiatedBy(ExchangeResponderFlow::class)
-    class ExchangeResponderFlowHandler(private val counterPartySession: FlowSession): FlowLogic<Unit>() {
+    class ExchangeResponderFlowHandler(private val counterPartySession: FlowSession) : FlowLogic<Unit>() {
 
         @Suspendable
         override fun call() {
@@ -131,16 +131,15 @@ object InitiateExchangeFlows {
             if (exchangeRequestDto != exchangeRequestResponse) {
                 val reason =
                     "One or more attributes in the response has changed. Cannot proceed with this exchange request"
-                setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.ABORTED, reason)
+                setRequestStatus(exchangeRequestDto.requestId.toString(), ABORTED, reason)
                 flowFail(reason)
             }
-
             if (exchangeRequestResponse.requestStatus == null) {
-                val reason = "The response from counterparty ${exchangeRequestResponse.seller} must contain the requestStatus"
-                setRequestStatus(exchangeRequestDto.requestId.toString(), RequestStatus.ABORTED, reason)
+                val reason =
+                    "The response from counterparty ${exchangeRequestResponse.seller} must contain the requestStatus"
+                setRequestStatus(exchangeRequestDto.requestId.toString(), ABORTED, reason)
                 flowFail(reason)
             }
-
             setRequestStatus(exchangeRequestDto.requestId.toString(),
                 exchangeRequestResponse.requestStatus, exchangeRequestDto.reason)
         }

@@ -70,7 +70,7 @@ fun FlowLogic<*>.getPreferredNotaryForToken(
     }
 }
 
-
+@Suspendable
 fun getDefaultTimeWindow(serviceHub: ServiceHub): TimeWindow {
     val config: CordappConfig = serviceHub.getAppContext().config
     return try {

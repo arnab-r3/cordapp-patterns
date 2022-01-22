@@ -129,9 +129,9 @@ fun FlowLogic<*>.isExchangeAssetOwned(abstractAssetRequest: AbstractAssetRequest
                 rowsToAmount(tokenAmount.token, uncheckedCast(results)) >= tokenAmount
             }
             is NonFungibleAssetRequest -> {
-                val nonFungibleToken: Vault.Page<NonFungibleToken> =
+                val nfts: Vault.Page<NonFungibleToken> =
                     uncheckedCast(getMatchingAssetsAgainstRequest(abstractAssetRequest, holder))
-                nonFungibleToken.states.single().state.data.holder == holder
+                nfts.states.isNotEmpty() && nfts.states.single().state.data.holder == holder
             }
             else -> argFail("Cannot determine asset request type. It needs to be either a regular fungible or non fungible asset")
         }

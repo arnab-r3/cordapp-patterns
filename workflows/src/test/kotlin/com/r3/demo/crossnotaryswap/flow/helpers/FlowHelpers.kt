@@ -15,7 +15,6 @@ import com.r3.demo.crossnotaryswap.flows.dto.TokenDefinition
 import net.corda.core.concurrent.CordaFuture
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.StateAndRef
-import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
 import net.corda.testing.node.StartedMockNode
@@ -130,7 +129,7 @@ fun StartedMockNode.defineNonFungibleToken(tokenDefinition: TokenDefinition): Co
 
 fun StartedMockNode.issueNonFungibleToken(
     tokenIdentifier: String,
-    receivingParty: AbstractParty
+    receivingParty: Party
 ): CordaFuture<SignedTransaction> = transaction {
     startFlow(NFTFlows.IssueNFTFlow(
         tokenIdentifier,

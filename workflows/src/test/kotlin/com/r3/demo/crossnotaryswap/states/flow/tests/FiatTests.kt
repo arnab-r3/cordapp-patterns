@@ -121,6 +121,4 @@ class FiatTests : MockNetworkTest(numberOfNodes = 4, numberofNotaryNodes = 2) {
         assertHasBalance(network, BigDecimal(88.20).INR, partyBNode)
 
     }
-
-
 }

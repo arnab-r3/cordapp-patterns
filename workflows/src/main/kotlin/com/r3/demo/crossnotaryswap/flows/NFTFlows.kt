@@ -2,6 +2,7 @@ package com.r3.demo.crossnotaryswap.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import com.r3.corda.lib.tokens.contracts.states.EvolvableTokenType
+import com.r3.corda.lib.tokens.contracts.states.FungibleToken
 import com.r3.corda.lib.tokens.contracts.utilities.issuedBy
 import com.r3.corda.lib.tokens.workflows.flows.evolvable.addCreateEvolvableToken
 import com.r3.corda.lib.tokens.workflows.flows.move.MoveTokensFlowHandler
@@ -21,7 +22,6 @@ import com.r3.demo.generic.requireInFlow
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.contracts.requireThat
 import net.corda.core.flows.*
-import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
@@ -118,7 +118,7 @@ object NFTFlows {
     @StartableByService
     class IssueNFTFlow(
         private val tokenIdentifier: String,
-        private val receivingParty: AbstractParty
+        private val receivingParty: Party
     ) : FlowLogic<SignedTransaction>() {
 
         @Suspendable
@@ -149,9 +149,10 @@ object NFTFlows {
 
 
     @InitiatingFlow
+    @StartableByRPC
     class MoveNFT(
         private val tokenIdentifier: String,
-        private val receivingParty: AbstractParty,
+        private val receivingParty: Party,
         private val observers: List<Party> = emptyList(),
         private val queryCriteria: QueryCriteria? = null
     ) : FlowLogic<SignedTransaction>() {
@@ -161,13 +162,13 @@ object NFTFlows {
             val linearQueryCriteria = QueryCriteria
                 .LinearStateQueryCriteria(
                     linearId = listOf(UniqueIdentifier.fromString(tokenIdentifier)),
-                    contractStateTypes = setOf(EvolvableTokenType::class.java)
+                    contractStateTypes = setOf(FungibleToken::class.java)
                 )
-            val evolvableTokens = serviceHub.vaultService.queryBy<EvolvableTokenType>(linearQueryCriteria)
-            requireInFlow(evolvableTokens.states.isNotEmpty()) {"Cannot find token with identifier : $tokenIdentifier"}
-            val evolvableTokenData = evolvableTokens.states.single().state.data
+            val fungibleTokens = serviceHub.vaultService.queryBy<FungibleToken>(linearQueryCriteria)
+            requireInFlow(fungibleTokens.states.isNotEmpty()) { "Cannot find token with identifier : $tokenIdentifier" }
+            val tokenType = fungibleTokens.states.single().state.data.tokenType
             return subFlow(MoveNFTFlow(
-                PartyAndToken(receivingParty, evolvableTokenData.toPointer(evolvableTokenData.javaClass)),
+                PartyAndToken(receivingParty, tokenType),
                 observers,
                 queryCriteria
             ))
