@@ -6,6 +6,315 @@
 	},
 	"item": [
 		{
+			"name": "cns",
+			"item": [
+				{
+					"name": "Define nft",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"properties\": {\n        \"kittyName\" : \"Hello Kitty\"\n    },\n    \"type\":\"KITTY\",\n    \"maintainers\":\"O=PartyA,L=London,C=GB\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/cns/token-definition/non-fungible",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"cns",
+								"token-definition",
+								"non-fungible"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Issue NFT",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tokenIdentifier\" : \"b4d960e1-4f63-41a1-ae0d-3b8a14add8d8\",\n    \"receiver\": \"O=PartyC, L=London, C=GB\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/cns/token/non-fungible/issuance",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"cns",
+								"token",
+								"non-fungible",
+								"issuance"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "switch party",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "localhost:8080/api/cns/switch-party/PartyC",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"cns",
+								"switch-party",
+								"PartyC"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "issue inr",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tokenIdentifier\": \"INR\",\n    \"amount\": \"100\",\n    \"receiver\": \"O=PartyD, L=London, C=GB\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/cns/token/fungible/issuance",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"cns",
+								"token",
+								"fungible",
+								"issuance"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Move Fiat",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tokenIdentifier\": \"INR\",\n    \"amount\": \"150.50\",\n    \"receiver\": \"O=PartyD, L=London, C=GB\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/cns/token/fungible/move",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"cns",
+								"token",
+								"fungible",
+								"move"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "move nft",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tokenIdentifier\": \"f8d574ad-b745-475e-8628-d3adbc8209c9\",\n    \"receiver\": \"O=PartyD, L=London, C=GB\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/cns/token/non-fungible/move",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"cns",
+								"token",
+								"non-fungible",
+								"move"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "nft balance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "localhost:8080/api/cns/balance/non-fungible/3ba97151-b08b-4033-8739-e41ea678a849",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"cns",
+								"balance",
+								"non-fungible",
+								"3ba97151-b08b-4033-8739-e41ea678a849"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "fiat balance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "localhost:8080/api/cns/balance/fungible/INR",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"cns",
+								"balance",
+								"fungible",
+								"INR"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "swap request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"seller\": \"O=PartyC,L=London,C=GB\",\n    \"buyerAsset\": {\n        \"tokenIdentifier\": \"INR\",\n        \"amount\": \"100\",\n        \"type\":\"FUNGIBLE_ASSET_REQUEST\"\n    },\n    \"sellerAsset\": {\n        \"tokenIdentifier\": \"3ba97151-b08b-4033-8739-e41ea678a849\",\n        \"type\": \"NON_FUNGIBLE_ASSET_REQUEST\"\n\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/cns/token/swap/request",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"cns",
+								"token",
+								"swap",
+								"request"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "swap request approval",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"requestId\" : \"7d1900a3-55b9-4e32-9756-e3138a99cafe\",\n    \"approved\" : true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:8080/api/cns/token/swap/approval",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"cns",
+								"token",
+								"swap",
+								"approval"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "execute swap",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "localhost:8080/api/cns/token/swap/execute/7d1900a3-55b9-4e32-9756-e3138a99cafe",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"cns",
+								"token",
+								"swap",
+								"execute",
+								"7d1900a3-55b9-4e32-9756-e3138a99cafe"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "custom-schema",
 			"item": [
 				{
@@ -93,7 +402,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"party\": \"PartyC\"\n}",
+							"raw": "{\n    \"party\": \"PartyB\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -101,7 +410,7 @@
 							}
 						},
 						"url": {
-							"raw": "localhost:8080/api/network/a122d4f2-9e00-478a-baa1-497a89dc1fb9/member",
+							"raw": "localhost:8080/api/network/e7f90735-b11e-49ad-97f5-ff40f81961d9/member",
 							"host": [
 								"localhost"
 							],
@@ -109,7 +418,7 @@
 							"path": [
 								"api",
 								"network",
-								"a122d4f2-9e00-478a-baa1-497a89dc1fb9",
+								"e7f90735-b11e-49ad-97f5-ff40f81961d9",
 								"member"
 							]
 						}
@@ -204,7 +513,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n        \"groupName\" : \"new data group\",\n    \"membershipIds\" : [\"095d5794-71d8-445a-ab50-7441b5656183\",\n                        \"b7bae43e-ea03-42d1-8375-8610c4fcc47f\",\n    \"912f9107-9f61-4578-89a4-c3ed31afc26d\"]\n}",
+							"raw": "{\n    \"groupName\": \"new data group\",\n    \"membershipIds\": [\n        \"aab4639a-6d00-4582-90f4-ac9fefe313b3\",\n        \"324a4942-febc-4f2a-92e5-1fd626a2534a\",\n        \"300c37fe-f436-4557-b197-434ffcd7c1f8\"\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -212,7 +521,7 @@
 							}
 						},
 						"url": {
-							"raw": "localhost:8080/api/network/a122d4f2-9e00-478a-baa1-497a89dc1fb9/group",
+							"raw": "localhost:8080/api/network/e7f90735-b11e-49ad-97f5-ff40f81961d9/group",
 							"host": [
 								"localhost"
 							],
@@ -220,7 +529,7 @@
 							"path": [
 								"api",
 								"network",
-								"a122d4f2-9e00-478a-baa1-497a89dc1fb9",
+								"e7f90735-b11e-49ad-97f5-ff40f81961d9",
 								"group"
 							]
 						}
@@ -234,7 +543,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"groupIds\": [\"9361e5b2-9e56-41a6-90fa-5a5af6d95d74\"],\n    \"schema\": {\n        \"name\" : \"one schema\",\n        \"description\" : \"desc of zero schema\",\n        \"version\": \"v1\",\n        \"attributes\" : [\n            {\n                \"name\" : \"firstAttribute\",\n                \"dataType\" : \"INTEGER\",\n                \"mandatory\" : true,\n                \"regex\" : \"[0-9]{3,10}\",\n                \"associatedEvents\" : [\"Create\"]\n            },\n            {\n                \"name\" : \"secondAttribute\",\n                \"dataType\" : \"STRING\",\n                \"mandatory\" : true,\n                \"regex\" : \"[a-z0-9]{3,10}\",\n                \"associatedEvents\" : [\"Create\"]\n            },\n            {\n                \"name\" : \"thirdAttribute\",\n                \"dataType\" : \"BIG_DECIMAL\",\n                \"mandatory\" : false,\n                \"regex\" : \"^\\\\d*\\\\.?\\\\d*$\",\n                \"associatedEvents\" : [\"Create\"]\n            }\n        ],\n        \"parties\" : [\"O=PartyA, L=London, C=GB\", \"O=PartyB, L=London, C=GB\", \"O=PartyC, L=London, C=GB\"]\n    }\n}",
+							"raw": "{\n    \"groupIds\": [\n        \"e1aa190c-a609-489c-9dad-b27461c7afb5\"\n    ],\n    \"schema\": {\n        \"name\": \"one schema\",\n        \"description\": \"desc of zero schema\",\n        \"version\": \"v1\",\n        \"attributes\": [\n            {\n                \"name\": \"firstAttribute\",\n                \"dataType\": \"INTEGER\",\n                \"mandatory\": true,\n                \"regex\": \"[0-9]{3,10}\",\n                \"associatedEvents\": [\n                    \"Create\"\n                ]\n            },\n            {\n                \"name\": \"secondAttribute\",\n                \"dataType\": \"STRING\",\n                \"mandatory\": true,\n                \"regex\": \"[a-z0-9]{3,10}\",\n                \"associatedEvents\": [\n                    \"Create\"\n                ]\n            },\n            {\n                \"name\": \"thirdAttribute\",\n                \"dataType\": \"BIG_DECIMAL\",\n                \"mandatory\": false,\n                \"regex\": \"^\\\\d*\\\\.?\\\\d*$\",\n                \"associatedEvents\": [\n                    \"Create\"\n                ]\n            }\n        ],\n        \"parties\": [\n            \"O=PartyA, L=London, C=GB\",\n            \"O=PartyB, L=London, C=GB\",\n            \"O=PartyC, L=London, C=GB\"\n        ]\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -296,7 +605,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"data\": {\n        \"firstAttribute\": \"126\",\n        \"secondAttribute\":\"abc\",\n        \"thirdAttribute\": \"123.45\"\n    }\n}",
+							"raw": "{\n    \"data\": {\n        \"firstAttribute\": \"126\",\n        \"secondAttribute\": \"abc\",\n        \"thirdAttribute\": \"123.45\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -331,7 +640,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"data\": {\n        \"firstAttribute\": \"126\",\n        \"secondAttribute\":\"abc\",\n        \"thirdAttribute\": \"133.45\"\n    }\n}",
+					"raw": "{\n    \"data\": {\n        \"firstAttribute\": \"333\",\n        \"secondAttribute\":\"abadc\",\n        \"thirdAttribute\": \"9938.45\"\n    }\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -339,7 +648,7 @@
 					}
 				},
 				"url": {
-					"raw": "localhost:8080/api/groups/data/c9f2a15b-7c7c-4d48-bca9-eaacd281720e/schema/0bd46d5b-bde8-4856-a8c8-d498ab2faf20/kv/d276ae1f-f674-4ef9-a31c-0a1885d59614",
+					"raw": "localhost:8080/api/groups/data/68eda336-9ac0-4aec-a2d9-4ef995b5d61f/schema/c2c1d63a-bbf1-489e-96ef-5b0a8e84683c/kv/36a033de-850b-47a1-b275-89bc71555d08",
 					"host": [
 						"localhost"
 					],
@@ -348,11 +657,11 @@
 						"api",
 						"groups",
 						"data",
-						"c9f2a15b-7c7c-4d48-bca9-eaacd281720e",
+						"68eda336-9ac0-4aec-a2d9-4ef995b5d61f",
 						"schema",
-						"0bd46d5b-bde8-4856-a8c8-d498ab2faf20",
+						"c2c1d63a-bbf1-489e-96ef-5b0a8e84683c",
 						"kv",
-						"d276ae1f-f674-4ef9-a31c-0a1885d59614"
+						"36a033de-850b-47a1-b275-89bc71555d08"
 					]
 				}
 			},
