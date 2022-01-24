@@ -84,22 +84,16 @@ class LockContract : Contract {
             is Revert -> {
                 val lockState = tx.inRefsOfType(LockState::class.java).single().state.data
                 val encumberedTxIssuer = lockState.creator
-                val encumberedTxReceiver = lockState.receiver
                 val allowedOutputs: Set<AbstractToken> = tx.inputsOfType(AbstractToken::class.java).map {
                     if (it.holder.owningKey == lockState.compositeKey) it.withNewHolder(encumberedTxIssuer) else it
                 }.toSet()
                 val actualOutputs: Set<AbstractToken> = tx.outputsOfType(AbstractToken::class.java).toSet()
-
                 requireThat {
-                    "Token offer can be retired exclusively by either its issuer or its receiver" using
-                            (ourCommand.signers.intersect(setOf(encumberedTxIssuer.owningKey,
-                                encumberedTxReceiver.owningKey)).size == 1)
                     "Token offer can be retired by its issuer" using ourCommand.signers.contains(encumberedTxIssuer.owningKey)
                     "Token offer can only be reverted in favor of the offer issuer" using (allowedOutputs == actualOutputs)
                     "Token Revert requires an open ended time window with from time not null" using
                             (tx.timeWindow != null && tx.timeWindow?.fromTime != null)
                     tx.timeWindow?.fromTime?.isAfter(lockState.timeWindow.untilTime)
-
                 }
             }
         }
