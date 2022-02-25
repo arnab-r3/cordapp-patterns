@@ -8,6 +8,7 @@ import net.corda.core.identity.AbstractParty
 import net.corda.core.schemas.MappedSchema
 import net.corda.core.schemas.PersistentState
 import net.corda.core.schemas.QueryableState
+import net.corda.core.serialization.DeprecatedConstructorForDeserialization
 import org.hibernate.annotations.Type
 import java.io.Serializable
 import java.util.*
@@ -27,8 +28,12 @@ import javax.persistence.Table
 data class EncapsulatedState(
     val innerValue: String,
     override val participants: List<AbstractParty>,
-    override val linearId: UniqueIdentifier = UniqueIdentifier()
+    override val linearId: UniqueIdentifier = UniqueIdentifier(),
+    val someOtherValue: String
 ) : LinearState, QueryableState {
+
+    @DeprecatedConstructorForDeserialization(version = 1)
+    constructor(innerValue: String, participants: List<AbstractParty>, linearId: UniqueIdentifier = UniqueIdentifier()) : this (innerValue, participants, linearId, "")
 
     override fun generateMappedObject(schema: MappedSchema): PersistentState {
         return when (schema) {

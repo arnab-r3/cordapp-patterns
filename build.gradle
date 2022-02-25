@@ -31,6 +31,10 @@ buildscript { //properties that you need to build the project
         //tokens sdk
         tokens_release_version = '1.2'
         tokens_release_group = 'com.r3.corda.lib.tokens'
+
+        //guava versions
+        guava_version = constants.getProperty("guavaVersion")
+
     }
 
     repositories {
@@ -130,6 +134,7 @@ dependencies {
     // tokens sdk dependencies
     cordapp "$tokens_release_group:tokens-contracts:$tokens_release_version"
     cordapp "$tokens_release_group:tokens-workflows:$tokens_release_version"
+    cordapp("com.google.guava:guava:$guava_version")
 }
 
 //Task to deploy the nodes in order to bootstrap a network
@@ -153,6 +158,7 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
         // add tokens sdk
         cordapp("$tokens_release_group:tokens-contracts:$tokens_release_version")
         cordapp("$tokens_release_group:tokens-workflows:$tokens_release_version")
+        cordapp("com.google.guava:guava:$guava_version")
 //        cordapp("$tokens_release_group:tokens-money:$tokens_release_version")
 //        cordapp("$tokens_release_group:tokens-selection:$tokens_release_version")
 

@@ -23,7 +23,6 @@ import java.util.*
 fun fail(message: String): Nothing = throw IllegalArgumentException(message)
 
 
-
 object EncapsulationDemoFlows {
 
 
@@ -105,7 +104,7 @@ object EncapsulationDemoFlows {
                             queriedEncapsulatingState
                                 .state
                                 .data
-                                .withNewValues(txObject.enclosingValue,txObject.innerIdentifier)
+                                .withNewValues(txObject.enclosingValue, txObject.innerIdentifier)
 
 
                         val txBuilder = TransactionBuilder(getDefaultNotary(serviceHub))
@@ -124,7 +123,10 @@ object EncapsulationDemoFlows {
 
                     if (txObject.enclosedValue != null) {
                         val encapsulatedState =
-                            EncapsulatedState(txObject.enclosedValue, listOf(ourIdentity, counterParty))
+                            EncapsulatedState(
+                                innerValue = txObject.enclosedValue,
+                                participants = listOf(ourIdentity, counterParty),
+                                someOtherValue = "other value")
 
                         val txBuilder = TransactionBuilder(getDefaultNotary(serviceHub))
                             .addOutputState(encapsulatedState)

@@ -1,7 +1,8 @@
 apply plugin: 'kotlin-jpa'
 apply plugin: 'net.corda.plugins.cordapp'
 apply plugin: 'net.corda.plugins.quasar-utils'
-
+//apply plugin: 'org.springframework.boot'
+//apply plugin: 'io.spring.dependency-management'
 cordapp {
     targetPlatformVersion corda_platform_version
     minimumPlatformVersion corda_platform_version
@@ -39,6 +40,10 @@ configurations {
 }
 
 dependencies {
+
+//    implementation 'org.springframework.boot:spring-boot-starter-web'
+//    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     testCompile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
     testCompile "junit:junit:$junit_version"

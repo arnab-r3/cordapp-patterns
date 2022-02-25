@@ -23,6 +23,7 @@ dependencies {
 
     cordaCompile "$tokens_release_group:tokens-contracts:$tokens_release_version"
 
+    cordaCompile "com.google.guava:guava:$guava_version"
 
     testCompile project(":testing")
 
