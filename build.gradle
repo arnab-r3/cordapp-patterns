@@ -51,6 +51,7 @@ buildscript { //properties that you need to build the project
         classpath "net.corda.plugins:quasar-utils:$corda_gradle_plugins_version"
         classpath "org.jetbrains.kotlin:kotlin-noarg:$kotlin_version"
         classpath "org.springframework.boot:spring-boot-gradle-plugin:$spring_boot_gradle_plugin_version"
+        classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.3'
     }
 }
 
@@ -125,16 +126,15 @@ dependencies {
     cordaCompile "org.apache.logging.log4j:log4j-slf4j-impl:${log4j_version}"
     cordaCompile "org.apache.logging.log4j:log4j-web:${log4j_version}"
     cordaCompile "org.slf4j:jul-to-slf4j:$slf4j_version"
-    cordapp "$accounts_release_group:accounts-contracts:$accounts_release_version"
+//    cordapp "$accounts_release_group:accounts-contracts:$accounts_release_version"
     cordapp "$confidential_id_release_group:ci-workflows:$confidential_id_release_version"
     cordapp "$accounts_release_group:accounts-workflows:$accounts_release_version"
-    cordapp("net.corda.bn:business-networks-contracts:$corda_bn_extension_version")
+//    cordapp("net.corda.bn:business-networks-contracts:$corda_bn_extension_version")
     cordapp("net.corda.bn:business-networks-workflows:$corda_bn_extension_version")
 
     // tokens sdk dependencies
     cordapp "$tokens_release_group:tokens-contracts:$tokens_release_version"
     cordapp "$tokens_release_group:tokens-workflows:$tokens_release_version"
-    cordapp("com.google.guava:guava:$guava_version")
 }
 
 //Task to deploy the nodes in order to bootstrap a network
@@ -158,9 +158,9 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
         // add tokens sdk
         cordapp("$tokens_release_group:tokens-contracts:$tokens_release_version")
         cordapp("$tokens_release_group:tokens-workflows:$tokens_release_version")
-        cordapp("com.google.guava:guava:$guava_version")
-//        cordapp("$tokens_release_group:tokens-money:$tokens_release_version")
-//        cordapp("$tokens_release_group:tokens-selection:$tokens_release_version")
+
+        cordapp("$tokens_release_group:tokens-money:$tokens_release_version")
+        cordapp("$tokens_release_group:tokens-selection:$tokens_release_version")
 
         cordapp project(':contracts')
         cordapp (project(':workflows')) {

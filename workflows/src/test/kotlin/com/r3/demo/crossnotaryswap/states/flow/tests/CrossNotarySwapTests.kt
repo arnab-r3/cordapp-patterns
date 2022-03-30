@@ -82,6 +82,51 @@ class CrossNotarySwapTests : MockNetworkTest(nodeNames, notaryNames) {
     private lateinit var finalizedBuyerTx: SignedTransaction
 
     @Test
+    fun `test JPA Commit if flow throws`() {
+        centralBankNode.issueFungibleTokens(BigDecimal(100.20), "INR", sellerNode.legalIdentity(), emptyList())
+
+        val tokenDefinition = KittyTokenDefinition(
+            kittyName = "Black Kitty",
+            maintainers = listOf(artistNode.legalIdentity().toString())
+        )
+        val defineNonFungibleToken = artistNode.defineNonFungibleToken(tokenDefinition).getOrThrow()
+        val tokenDefinitionId = defineNonFungibleToken.singleOutput<KittyToken>().getLinearId()
+
+        logger.info("Artist defined a kitty token with ID: $tokenDefinitionId")
+
+        val issueTxn = artistNode
+            .issueNonFungibleToken(
+                tokenDefinitionId,
+                buyerNode.legalIdentity()
+            )
+            .getOrThrow()
+
+        val nftTokenId = issueTxn.singleOutput<NonFungibleToken>().getLinearId()
+
+        logger.info("Artist issued a kitty token with NFT linear id: $nftTokenId")
+
+        kittyTokenType = issueTxn.singleOutput<NonFungibleToken>().state.data.tokenType
+        // party D is the buyer and exchanging the NFT with the above id in exchange of 10 INR token
+
+        logger.info("Buyer key is: ${buyerNode.legalIdentity().owningKey.toStringShort()}")
+        logger.info("Seller key is: ${sellerNode.legalIdentity().owningKey.toStringShort()}")
+
+        val exchangeRequestId = buyerNode.startFlow(
+            InitiateExchangeFlows.ExchangeRequesterFlow(
+                sellerParty = sellerNode.legalIdentity(),
+                sellerAssetRequest = FungibleAssetRequest(10.INR),
+                buyerAssetRequest = NonFungibleAssetRequest(nftTokenId)
+            )
+        ).getOrThrow()
+
+        logger.info("Asset exchange request created with request Id: $exchangeRequestId")
+        val exchangeRequestAtBuyer = getExchangeRequestDto(exchangeRequestId, buyerNode)
+        val exchangeRequestAtSeller = getExchangeRequestDto(exchangeRequestId, sellerNode)
+        assertNotNull(exchangeRequestAtBuyer)
+        assertNotNull(exchangeRequestAtSeller)
+    }
+
+    @Test
     fun `initiate cross notary swap`() {
 
 

@@ -70,6 +70,8 @@ class StateEncapsulationContract : Contract {
                     "UpdateEncapsulated Command should collect the signatures of all participants for modification" using
                             (command.signers.containsAll(inputEncapsulatedStates.single().participants.map { it.owningKey }))
                 }
+            is Commands.TestPrivacyContract -> {
+            }
         }
     }
 
@@ -78,6 +80,7 @@ class StateEncapsulationContract : Contract {
         class UpdateEncapsulating : Commands
         class UpdateEncapsulated : Commands
         class CreateEncapsulated : Commands
+        class TestPrivacyContract : Commands
 
 
     }
